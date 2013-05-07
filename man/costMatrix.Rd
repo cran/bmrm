@@ -1,0 +1,26 @@
+\name{costMatrix}
+\alias{costMatrix}
+\title{Compute or check the structure of a cost matrix}
+\usage{
+  costMatrix(y, C = c("0/1", "linear"))
+}
+\arguments{
+  \item{y}{integer vector of positive values (>=1)
+  representing the labels of the instances}
+
+  \item{C}{either a cost matrix to check for consistency
+  with labels in y, or a character string defining the
+  standard matrix to compute.  If a character string the
+  accepted values are "0/1" for a 0-1 cost matrix or
+  "linear" for linear cost.}
+}
+\value{
+  the cost matrix object
+}
+\description{
+  Compute or check the structure of a cost matrix
+}
+\seealso{
+  bmrm, ordinalRegressionLoss
+}
+

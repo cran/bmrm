@@ -1,0 +1,15 @@
+e61f904aaa497d092e71afa06f65b700 *DESCRIPTION
+dd98ccec8a2c63b570daf166be647882 *NAMESPACE
+19cd041868763ff6b475b02df1202531 *R/bmrm.R
+b716130d63e6ff6a3ce7e1077fef9635 *R/cost.R
+d53e93879f592894551db324f6c758d2 *R/scalarLoss.R
+c4777b7d3e7db4affe0ebbe4ae64ac6c *R/vectorialLoss.R
+81e5b3efad535ed25f5d249fe702fb45 *man/bmrm.Rd
+97236968c9c4e5c9165c7f46348d5e32 *man/costMatrix.Rd
+9aeca17334e4ab758d16c8f7d781ab6a *man/fbetaLoss.Rd
+870d2a60f6a44a5c05bd3130c1747c8d *man/hingeLoss.Rd
+54c1828cbf6cfbd55a5bfe6534739b68 *man/mlsRegressionLoss.Rd
+7a7a05cd4d19a6cf5e1f66225ae23a8f *man/ordinalRegressionLoss.Rd
+fd51ddcbef97d8c1d574346a160f1424 *man/quantileRegressionLoss.Rd
+21dc3fb285581e261bf96f327510aa36 *man/rocLoss.Rd
+d5b493b22419b79888ea0f89d39e5780 *man/softMarginVectorLoss.Rd
