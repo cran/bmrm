@@ -30,11 +30,12 @@ l1 <- function(A,b,LAMBDA) {
   setObjDirCLP(lp,-1)
   loadProblemCLP(lp,ncols=ncol(Cst),nrows=nrow(Cst),
                  ia=row(Cst)-1L,ja=seq(0L,length(Cst),by=nrow(Cst)),ra=Cst,
-                 lb=rep(0L,ncol(Cst)),ub=NULL,obj_coef=obj,
+                 lb=rep(0,ncol(Cst)),ub=NULL,obj_coef=obj,
                  rlb=NULL,rub=-b)
   solveInitialCLP(lp)
-  if (getSolStatusCLP(lp)!=0) warning("issue in the LP solver:",getSolStatusCLP(lp))
-    
+
+  if (getSolStatusCLP(lp)!=0) warning("issue in the LP solver:",status_codeCLP(getSolStatusCLP(lp)))
+
   W <- getColPrimCLP(lp)
   u <- W[-1][1:ncol(A)]
   v <- W[-1][-1:-ncol(A)]
@@ -129,7 +130,7 @@ bmrm <- function(...,LAMBDA=1,MAX_ITER=100,EPSILON_TOL=0.01,lossfun=hingeLoss,re
 	A <- matrix(loss$gradient,1,)
 	b <- loss$value
 
-	loop <- list(loss=numeric(0),regVal=numeric(0),lb=numeric(0),ub=NA,epsilon=NA)
+	loop <- list(loss=numeric(0),regVal=numeric(0),lb=numeric(0),ub=NA,epsilon=NA,nnz=NA)
 	for (i in 1:MAX_ITER) {
 		reg <- regfun(A,b,LAMBDA) # Find minimizer w_i = argmin(J_i(w)), using [A,b]
 		
@@ -143,13 +144,15 @@ bmrm <- function(...,LAMBDA=1,MAX_ITER=100,EPSILON_TOL=0.01,lossfun=hingeLoss,re
 		loop$loss[i] <- loss$value
 		loop$regVal[i] <- reg$regularizationValue
 		loop$lb[i] <- reg$objectiveValue
+    loop$nnz[i] <- sum(reg$w != 0)
+    loop$numCst[i] <- length(b)
 		if (i>2) {
       Ri <- max(0,(A %*% reg$w) + b)
 			loop$ub[i] <- min(loop$ub[i-1],Ri + loop$regVal[i],na.rm=TRUE)
 			loop$epsilon[i] <- loop$ub[i] - loop$lb[i]
 			if (loop$epsilon[i] < EPSILON_TOL) break
 		}
-    if (verbose) {cat(paste("i=",i,sep=''),paste(names(loop),sapply(loop,'[',i),sep='='),sep=',');cat("\n")}           
+    if (verbose) {cat(paste("i=",i,sep=''),paste(names(loop),sapply(loop,'[',i),sep='='),sep=',');cat("\n")}
 	}
 	if (i >= MAX_ITER) warning('max # of itertion exceeded')
 	return(list(

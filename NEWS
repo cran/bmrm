@@ -1,0 +1,6 @@
+Release 1.4 (19 July, 2013)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Minor improvment: track the number of none zero element, and number of constraints in bmrm log.
+Minor improvment: improve package description.
+
+
