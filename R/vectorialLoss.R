@@ -64,7 +64,7 @@ softMarginVectorLoss <- function(w,x,y,l="0/1",cache=NULL) {
       l <- as.matrix(l)
       if (!identical(nrow(x),nrow(l))) stop('dimensions of x and l mismatch')
     }
-    if (any(y<1 | y>ncol(l))) stop('bad values in y')
+    if (any(y<1 | y>ncol(l))) stop('some values in y are out of range')
     cache <- list(l=l)
   } else {
     l <- cache$l

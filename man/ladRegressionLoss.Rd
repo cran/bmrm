@@ -1,8 +1,8 @@
-\name{mlsRegressionLoss}
-\alias{mlsRegressionLoss}
-\title{The loss function to perform a mean least square regression}
+\name{ladRegressionLoss}
+\alias{ladRegressionLoss}
+\title{The loss function to perform a least absolute deviation regression}
 \usage{
-  mlsRegressionLoss(w, x, y, cache = NULL)
+  ladRegressionLoss(w, x, y, cache = NULL)
 }
 \arguments{
   \item{w}{weight vector where the function have to be
@@ -23,7 +23,7 @@
   gradient of the loss function at w
 }
 \description{
-  The loss function to perform a mean least square
+  The loss function to perform a least absolute deviation
   regression
 }
 \references{

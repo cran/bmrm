@@ -93,7 +93,7 @@ l1 <- function(A,b,LAMBDA) {
 #'     return(m)
 #'   }
 #'   
-#'   # -- train scalar prediction models with maxMarginLoss and rocLoss 
+#'   # -- train scalar prediction models with maxMarginLoss and fbetaLoss 
 #'   models <- list(
 #'     svm_L1 = train.prediction.model(x,y,lossfun=hingeLoss,LAMBDA=0.01,regfun='l1'),
 #'     svm_L2 = train.prediction.model(x,y,lossfun=hingeLoss,LAMBDA=0.1,regfun='l2'),

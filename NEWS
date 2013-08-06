@@ -1,6 +1,14 @@
+Release 1.5 (24 July, 2013)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+* Rename mlsRegressionLoss into lmsRegressionLoss
+* Implement new scalar losses:  epsilonInsensitiveRegressionLoss, ladRegressionLoss, logisticRegression
+* Write a vignette for the package
+* Minor imrovment: Improve error messages
+* Minor imrovment: split the source code "scalarLoss.R" in 2 files "scalarClassificationLosses.R" and "scalarRegressionLosses.R"
+
 Release 1.4 (19 July, 2013)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Minor improvment: track the number of none zero element, and number of constraints in bmrm log.
-Minor improvment: improve package description.
+* Minor improvment: track the number of none zero element, and number of constraints in bmrm log.
+* Minor improvment: improve package description.
 
 

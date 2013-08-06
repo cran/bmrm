@@ -1,0 +1,83 @@
+\documentclass{article}
+
+\usepackage[round]{natbib}
+
+
+\begin{document}
+\SweaveOpts{concordance=TRUE}
+%\VignetteIndexEntry{bmrm User Manual}
+%\VignetteDepends{utils}
+%\VignetteDepends{tools}
+%\VignetteDepends{datasets}
+%\VignetteKeywords{classification, regression, machine learning, ordinal regression, SVM, structured prediction, support vector machines}
+%\VignettePackage{bmrm}
+
+\title{\emph{bmrm} user manual}
+\author{Julien Prados\\ Genetic Psychiatric Unit, University of Geneva}
+\maketitle
+
+\section{Introduction}
+Package \emph{bmrm} implements the "Bundle Methods for Regularized Risk Minimization" proposed by \cite{teo10}. This framework efficiently solves a minimization problem encountred in many recent machine learning algorithm where the goal is to minimze a loss function $l(w,x_i,y_i)$ on the training instances $(x_i,y_i)$, under a regularization term ($\Omega(w)$):
+$$\min_{w} J(w) := \lambda \Omega(w) + R_{emp}(w),$$
+$$R_{emp} := \frac{1}{m}\sum{l(x_i,y_i,w)}, \lambda > 0$$
+To date, the package implements 10 loss functions providing access to many powerful algorithms with either l1-norm or l2-norm regularization: linear-SVM-classification (with l1 and l2 regularization), multiclass-SVM (with l1 and l2 regularization), epsilon-regression, ordinal-regression, max-margin-fbeta-classification, quantile-regression, etc. Furthermore, flexibility of the framework makes it particulary easy to implement custom loss function for your all your needs.
+
+\section{\emph{bmrm} for iris classification}
+This section shows how to use \emph{bmrm} to train several classification algrithms on \emph{iris} dataset. To simplify the dataset and facilitate plotting, we consider only 2 dimensions (Sepal.Length, Sepal.Width), and limit ourselves to 2 classes (negative class being setosa;positive class being versicolor and virginica). 
+<<>>=
+  require(bmrm)
+  # -- Create a 2D dataset with the first 2 features of iris, and binary labels
+  x <- data.matrix(iris[1:2])
+  y <- c(-1,1,1)[iris$Species]
+
+  # -- Add a constant dimension to the dataset to learn the intercept
+  x <- cbind(x,1)
+@
+On this dataset, 3 linear classfiers are learned: linear-SVM with L1-norm regularization, linear-SVM with L2-norm regularization, max-margin-f1-classification with L1-regularization.
+<<>>=
+  train.prediction.model <- function(x,y,lossfun=hingeLoss,...) {
+    m <- bmrm(x,y,lossfun=lossfun,...)
+    m$f <- x %*% m$w
+    m$y <- sign(m$f)
+    m$contingencyTable <- table(y,m$y)
+    return(m)
+  }
+
+  # -- train models with maxMarginLoss and fbetaLoss
+  models <- list(
+    svm_L1 = train.prediction.model(x,y,lossfun=hingeLoss,LAMBDA=0.01,regfun='l1'),
+    svm_L2 = train.prediction.model(x,y,lossfun=hingeLoss,LAMBDA=0.1,regfun='l2'),
+    f1_L1 = train.prediction.model(x,y,lossfun=fbetaLoss,LAMBDA=0.01,regfun='l1')
+  )
+@
+
+\begin{figure}[h]
+\begin{center}
+<<fig=TRUE,width=15,height=10,dev="png",echo=FALSE>>=
+  # -- Plot the dataset and the predictions
+  layout(matrix(1:2,1,2))
+  plot(x,pch=20+y,main="dataset & hyperplanes")
+  legend('bottomright',legend=names(models),col=seq_along(models),lty=1,cex=0.75,lwd=3)
+  for(i in seq_along(models)) {
+    m <- models[[i]]
+    if (m$w[2]!=0) abline(-m$w[3]/m$w[2],-m$w[1]/m$w[2],col=i,lwd=3)
+  }
+
+  rx <- range(na.rm=TRUE,1,unlist(lapply(models,function(e) nrow(e$log))))
+  ry <- range(na.rm=TRUE,0,unlist(lapply(models,function(e) e$log$epsilon)))
+  plot(rx,ry,type="n",ylab="epsilon gap",xlab="iteration",main="evolution of the epsilon gap")
+  for(i in seq_along(models)) {
+    m <- models[[i]]
+    lines(m$log$epsilon,type="o",col=i,lwd=3)
+  }
+@
+\end{center}
+\caption{Left panel: Comparison of the decision surface of the 3 linear models trained on iris dataset. Right panel: Convergence curve of the optimization process}
+\end{figure}
+
+
+\bibliographystyle{jss}
+\bibliography{bmrm}
+
+
+\end{document}
