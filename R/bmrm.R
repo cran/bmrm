@@ -25,13 +25,15 @@ l1 <- function(A,b,LAMBDA) {
   on.exit(delProbCLP(lp))
   setLogLevelCLP(lp,0)
   
-  obj <- c(-1,rep(-LAMBDA,2*ncol(A)))
-  Cst <- cbind(-1,A,-A)
   setObjDirCLP(lp,-1)
-  loadProblemCLP(lp,ncols=ncol(Cst),nrows=nrow(Cst),
-                 ia=row(Cst)-1L,ja=seq(0L,length(Cst),by=nrow(Cst)),ra=Cst,
-                 lb=rep(0,ncol(Cst)),ub=NULL,obj_coef=obj,
-                 rlb=NULL,rub=-b)
+  loadProblemCLP(lp,ncols=1,nrows=nrow(A),
+                 ia=seq_len(nrow(A))-1L,ja=c(0L,nrow(A)),ra=rep(-1,nrow(A)),
+                 lb=0,obj_coef=-1,rub=-b)
+  lb <- rep(0,ncol(A))
+  ub <- rep(.Machine$double.xmax,ncol(A))
+  obj <- rep(-LAMBDA,ncol(A))
+  addColsCLP(lp,ncol(A),lb=lb,ub=ub,obj=obj,colst=seq(0L,length(A),by=nrow(A)),rows=row(A)-1L,val=A)
+  addColsCLP(lp,ncol(A),lb=lb,ub=ub,obj=obj,colst=seq(0L,length(A),by=nrow(A)),rows=row(A)-1L,val=-A)
   solveInitialCLP(lp)
 
   if (getSolStatusCLP(lp)!=0) warning("issue in the LP solver:",status_codeCLP(getSolStatusCLP(lp)))

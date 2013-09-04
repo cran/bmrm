@@ -1,8 +1,8 @@
 Package: bmrm
 Type: Package
 Title: Bundle Methods for Regularized Risk Minimization Package
-Version: 1.5
-Date: 2013-08-06
+Version: 1.6
+Date: 2013-09-04
 Depends: clpAPI, kernlab
 Author: Julien Prados
 Maintainer: Julien Prados <julien.prados@unige.ch>
@@ -11,7 +11,7 @@ Description: An implementation of "Bundle Methods for Regularized Risk Minimizat
 License: GPL-3
 Collate: 'bmrm.R' 'scalarClassificationLosses.R'
         'scalarRegressionLosses.R' 'cost.R' 'vectorialLoss.R'
-Packaged: 2013-08-06 16:20:45 UTC; prados
+Packaged: 2013-09-04 14:29:45 UTC; prados
 NeedsCompilation: no
 Repository: CRAN
-Date/Publication: 2013-08-06 21:39:26
+Date/Publication: 2013-09-04 16:47:32

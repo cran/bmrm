@@ -220,7 +220,7 @@ fbetaLoss <- function(w,x,y,beta=1,cache=NULL) {
   
   w <- rep(w,length.out=ncol(x))
   f <- x %*% w
-  o <- order(f,decreasing=FALSE)
+  o <- order(f,decreasing=TRUE)
   op <- o[y[o]==1]
   on <- rev(o[y[o]==-1])
   
@@ -232,8 +232,8 @@ fbetaLoss <- function(w,x,y,beta=1,cache=NULL) {
 
   ij <- arrayInd(which.max(R),dim(R))
   Y <- -y
-  Y[op[seq(length=ij[1,1]-1)]] <- 1
-  Y[on[seq(length=ij[1,2]-1)]] <- -1
+  Y[op[seq_len(ij[1,1]-1L)]] <- 1L
+  Y[on[seq_len(ij[1,2]-1L)]] <- -1L
     
   # -- convert scalar loss to generic loss
   return(list(
