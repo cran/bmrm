@@ -1,3 +1,8 @@
+Release 1.7 (28 Jan, 2014)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+* The hingeLoss function (for SVM learning) gain a loss.weights paramter to handle unbalanced class distribution
+* Better handling of optimization parameter w0 in bmrm for hot starting the optimization process
+
 Release 1.6 (4 Sept, 2013)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 * Important fix in fbetaLoss: previous version was not correct and often lead to unsolvable optimization problem.

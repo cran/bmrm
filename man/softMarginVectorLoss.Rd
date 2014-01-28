@@ -2,7 +2,7 @@
 \alias{softMarginVectorLoss}
 \title{Soft Margin Vector Loss function for multiclass SVM}
 \usage{
-  softMarginVectorLoss(w, x, y, l = "0/1", cache = NULL)
+softMarginVectorLoss(w, x, y, l = "0/1", cache = NULL)
 }
 \arguments{
   \item{w}{weight vector where the function have to be
@@ -24,12 +24,12 @@
   to replace the parameter l without any checking}
 }
 \value{
-  a 2 element list (value,gradient) where "value" is the
-  value of the function at point w, and "gradient" is the
-  gradient of the loss function at w
+a 2 element list (value,gradient) where "value" is the
+value of the function at point w, and "gradient" is the
+gradient of the loss function at w
 }
 \description{
-  Soft Margin Vector Loss function for multiclass SVM
+Soft Margin Vector Loss function for multiclass SVM
 }
 \examples{
 # -- Load the data
@@ -69,7 +69,7 @@
   plot(m$log$epsilon,type="o",ylab="epsilon gap",xlab="iteration")
 }
 \references{
-  Teo et al.  A Scalable Modular Convex Solver for
-  Regularized Risk Minimization.  KDD 2007
+Teo et al.  A Scalable Modular Convex Solver for
+Regularized Risk Minimization.  KDD 2007
 }
 

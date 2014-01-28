@@ -2,9 +2,8 @@
 \alias{bmrm}
 \title{Bundle Methods for Regularized Risk Minimization}
 \usage{
-  bmrm(..., LAMBDA = 1, MAX_ITER = 100, EPSILON_TOL = 0.01,
-    lossfun = hingeLoss, regfun = c("l2", "l1"), w0 = 0,
-    verbose = FALSE)
+bmrm(..., LAMBDA = 1, MAX_ITER = 100, EPSILON_TOL = 0.01,
+  lossfun = hingeLoss, regfun = c("l2", "l1"), w0 = 0, verbose = FALSE)
 }
 \arguments{
   \item{lossfun}{the loss function to use in the
@@ -50,13 +49,13 @@
   function}
 }
 \value{
-  a list of 2 fileds: "w" the optimized weight vector;
-  "log" a data.frame showing the trace of important values
-  in the optimization process.
+a list of 2 fileds: "w" the optimized weight vector; "log"
+a data.frame showing the trace of important values in the
+optimization process.
 }
 \description{
-  Implement Bundle Methods for Regularized Risk
-  Minimization as described in Teo et. al 2007.
+Implement Bundle Methods for Regularized Risk Minimization
+as described in Teo et. al 2007.
 }
 \examples{
 # -- Create a 2D dataset with the first 2 features of iris, with binary labels
@@ -100,14 +99,13 @@
   }
 }
 \author{
-  Julien Prados
+Julien Prados
 }
 \references{
-  Teo et al.  A Scalable Modular Convex Solver for
-  Regularized Risk Minimization.  KDD 2007
+Teo et al.  A Scalable Modular Convex Solver for
+Regularized Risk Minimization.  KDD 2007
 }
 \seealso{
-  \code{\link{hingeLoss}}
-  \code{\link{softMarginVectorLoss}}
+\code{\link{hingeLoss}} \code{\link{softMarginVectorLoss}}
 }
 

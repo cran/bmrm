@@ -6,34 +6,41 @@
 #' @param x matrix of training instances (one instance by row)
 #' @param y numeric vector of values in (-1,+1) representing the training labels for each instance in x
 #' @param cache if NULL (which is the case at the first call) parameters values are checked
+#' @param loss.weights numeric vector of loss weights to incure for each instance of x in case of misprediction. 
+#'        Vector length should match length(y), but values are cycled if not of identical size. 
+#'        Default to 1 so we define a standard 0/1 loss for SVM classifier. 
+#'        The parameter might be useful to adapt SVM learning in case of unbalanced class distribution.
 #' @return a 2 element list (value,gradient) where "value" is the value of the function at point w, and "gradient" is the gradient of the loss function at w
 #' @export
 #' @references Teo et al.
 #'   A Scalable Modular Convex Solver for Regularized Risk Minimization.
 #'   KDD 2007
 #' @seealso bmrm
-hingeLoss <- function(w,x,y,cache=NULL) {
+hingeLoss <- function(w,x,y,cache=NULL,loss.weights=1) {
   
   # check parameters at first call
   if (is.null(cache)) {
     if (!is.matrix(x)) stop('x must be a numeric matrix')
     if (!is.numeric(y) || !all(y %in% c(-1,1))) stop('y must be a numeric vector of either -1 or +1')
     if (nrow(x) != length(y)) stop('dimensions of x and y mismatch')
-    cache <- list()
+    loss.weights <- rep(loss.weights,length.out=length(y))
+    cache <- list(loss.weights=loss.weights)
   }
-
-  w <- rep(w,length.out=ncol(x))
-  f <- x %*% w
   
-  loss <- pmax(0,1-y*f)
-  grad <- (loss>0) * (-y)
-  
-  # -- convert scalar loss to generic loss
-  return(list(
-    value=sum(loss),
-    gradient=crossprod(x,grad),
-    cache = cache
-  ))
+  with(cache,{
+    w <- rep(w,length.out=ncol(x))
+    f <- x %*% w
+    
+    loss <- loss.weights * pmax(0,1-y*f)
+    grad <- loss.weights * (loss>0) * (-y)
+    
+    # -- convert scalar loss to generic loss
+    return(list(
+      value=sum(loss),
+      gradient=crossprod(x,grad),
+      cache = cache
+    ))
+  })
 }
 
 

@@ -2,8 +2,8 @@
 \alias{ordinalRegressionLoss}
 \title{The loss function for ordinal regression}
 \usage{
-  ordinalRegressionLoss(w, x, y, C = "0/1",
-    impl = c("loglin", "quadratic"), cache = NULL)
+ordinalRegressionLoss(w, x, y, C = "0/1", impl = c("loglin", "quadratic"),
+  cache = NULL)
 }
 \arguments{
   \item{w}{weight vector where the function have to be
@@ -26,12 +26,12 @@
   call) parameters values are checked}
 }
 \value{
-  a 2 element list (value,gradient) where "value" is the
-  value of the function at point w, and "gradient" is the
-  gradient of the loss function at w
+a 2 element list (value,gradient) where "value" is the
+value of the function at point w, and "gradient" is the
+gradient of the loss function at w
 }
 \description{
-  The loss function for ordinal regression
+The loss function for ordinal regression
 }
 \examples{
 # -- Load the data
@@ -56,10 +56,10 @@ N <- table(y[ij$i],y[ij$j])
 print(n/N)
 }
 \references{
-  Teo et al.  Bundle Methods for Regularized Risk
-  Minimization JMLR 2010
+Teo et al.  Bundle Methods for Regularized Risk
+Minimization JMLR 2010
 }
 \seealso{
-  bmrm
+bmrm
 }
 

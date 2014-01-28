@@ -2,8 +2,7 @@
 \alias{epsilonInsensitiveRegressionLoss}
 \title{The loss function to perform a epsilon-insensitive regression (Vapnik et al. 1997)}
 \usage{
-  epsilonInsensitiveRegressionLoss(w, x, y, epsilon,
-    cache = NULL)
+epsilonInsensitiveRegressionLoss(w, x, y, epsilon, cache = NULL)
 }
 \arguments{
   \item{w}{weight vector where the function have to be
@@ -22,19 +21,19 @@
   call) parameters values are checked}
 }
 \value{
-  a 2 element list (value,gradient) where "value" is the
-  value of the function at point w, and "gradient" is the
-  gradient of the loss function at w
+a 2 element list (value,gradient) where "value" is the
+value of the function at point w, and "gradient" is the
+gradient of the loss function at w
 }
 \description{
-  The loss function to perform a epsilon-insensitive
-  regression (Vapnik et al. 1997)
+The loss function to perform a epsilon-insensitive
+regression (Vapnik et al. 1997)
 }
 \references{
-  Teo et al.  Bundle Methods for Regularized Risk
-  Minimization JMLR 2010
+Teo et al.  Bundle Methods for Regularized Risk
+Minimization JMLR 2010
 }
 \seealso{
-  bmrm
+bmrm
 }
 

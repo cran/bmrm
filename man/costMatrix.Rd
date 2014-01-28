@@ -2,7 +2,7 @@
 \alias{costMatrix}
 \title{Compute or check the structure of a cost matrix}
 \usage{
-  costMatrix(y, C = c("0/1", "linear"))
+costMatrix(y, C = c("0/1", "linear"))
 }
 \arguments{
   \item{y}{integer vector of positive values (>=1)
@@ -15,12 +15,12 @@
   "linear" for linear cost.}
 }
 \value{
-  the cost matrix object
+the cost matrix object
 }
 \description{
-  Compute or check the structure of a cost matrix
+Compute or check the structure of a cost matrix
 }
 \seealso{
-  bmrm, ordinalRegressionLoss
+bmrm, ordinalRegressionLoss
 }
 

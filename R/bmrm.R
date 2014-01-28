@@ -73,6 +73,8 @@ l1 <- function(A,b,LAMBDA) {
 #' @param ... additional argument passed to the loss function
 #' @return a list of 2 fileds: "w" the optimized weight vector; "log" a data.frame showing the trace of important values in the optimization process.
 #' @export
+#' @import clpAPI
+#' @import kernlab
 #' @references Teo et al.
 #'   A Scalable Modular Convex Solver for Regularized Risk Minimization.
 #'   KDD 2007
@@ -129,11 +131,11 @@ bmrm <- function(...,LAMBDA=1,MAX_ITER=100,EPSILON_TOL=0.01,lossfun=hingeLoss,re
 	regfun <- match.arg(regfun)
 	regfun <- get(regfun, mode = "function",parent.env(environment()))
 	loss <- lossfun(w0,cache=NULL,...)
-	A <- matrix(loss$gradient,1,)
-	b <- loss$value
+	A <- matrix(as.vector(loss$gradient),1,)
+	b <- loss$value - crossprod(rep_len(w0,length(loss$gradient)),as.vector(loss$gradient))
 
-	loop <- list(loss=numeric(0),regVal=numeric(0),lb=numeric(0),ub=NA,epsilon=NA,nnz=NA)
-	for (i in 1:MAX_ITER) {
+	loop <- list(loss=loss$value,regVal=NA,lb=NA,ub=NA,epsilon=NA,nnz=NA)
+	for (i in 2:MAX_ITER) {
 		reg <- regfun(A,b,LAMBDA) # Find minimizer w_i = argmin(J_i(w)), using [A,b]
 		
 		# -- compute gradient ai and offset bi, and update [A,b]
@@ -148,7 +150,7 @@ bmrm <- function(...,LAMBDA=1,MAX_ITER=100,EPSILON_TOL=0.01,lossfun=hingeLoss,re
 		loop$lb[i] <- reg$objectiveValue
     loop$nnz[i] <- sum(reg$w != 0)
     loop$numCst[i] <- length(b)
-		if (i>2) {
+		if (i>3) {
       Ri <- max(0,(A %*% reg$w) + b)
 			loop$ub[i] <- min(loop$ub[i-1],Ri + loop$regVal[i],na.rm=TRUE)
 			loop$epsilon[i] <- loop$ub[i] - loop$lb[i]
