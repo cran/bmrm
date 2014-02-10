@@ -1,7 +1,7 @@
-a4fe61e1e7d0afceaa136ca3b61bb447 *DESCRIPTION
-38615688d36c5b88d1e56c004e1b72ca *NAMESPACE
-e401097b0d50ee79b65ade779214b828 *NEWS
-15261a999df7c6b0be2cf28497fc3b1e *R/bmrm.R
+1092bc997769cae4c8ede8ea31e415c5 *DESCRIPTION
+8a145b8689217f53ce1ed17546941270 *NAMESPACE
+0d970f28199af03de806fb80525ae383 *NEWS
+34e333271e6faa8de64c0ee0568aa2ca *R/bmrm.R
 b716130d63e6ff6a3ce7e1077fef9635 *R/cost.R
 8189b042282e3bf95919fb788b55a6da *R/scalarClassificationLosses.R
 b06019e9f89ab8c0ed64824305950651 *R/scalarRegressionLosses.R
@@ -9,8 +9,8 @@ b06019e9f89ab8c0ed64824305950651 *R/scalarRegressionLosses.R
 d483cb52dbfaab92293b9eceee697203 *build/vignette.rds
 f7fb0e83c21fb1732c56e7bf57bc611f *inst/doc/bmrm.R
 2c723311faa2a41e9b071078def309f1 *inst/doc/bmrm.Rnw
-549a50de1cd5403440a9312758068493 *inst/doc/bmrm.pdf
-c2defab094bd2fcf03d9d78e7f7406b4 *man/bmrm.Rd
+387c24adc7e726a0194e7c87a76b0c7b *inst/doc/bmrm.pdf
+72b05048fd7443682b4814dfbff1a2e3 *man/bmrm.Rd
 203a43a38b79ecb317369e47700d982b *man/costMatrix.Rd
 773c593514d0607f853e2139b1d3b5aa *man/epsilonInsensitiveRegressionLoss.Rd
 3065ddedb7d6be4496139e8bc5ebc28d *man/fbetaLoss.Rd

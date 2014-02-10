@@ -3,7 +3,7 @@
 \title{Bundle Methods for Regularized Risk Minimization}
 \usage{
 bmrm(..., LAMBDA = 1, MAX_ITER = 100, EPSILON_TOL = 0.01,
-  lossfun = hingeLoss, regfun = c("l2", "l1"), w0 = 0, verbose = FALSE)
+  lossfun = hingeLoss, regfun = c("l1", "l2"), verbose = FALSE)
 }
 \arguments{
   \item{lossfun}{the loss function to use in the
@@ -39,9 +39,6 @@ bmrm(..., LAMBDA = 1, MAX_ITER = 100, EPSILON_TOL = 0.01,
   for L1-norm regularization, or "l2" (default) for L2-norm
   regularization.}
 
-  \item{w0}{a numeric vector used to initialize the
-  minimization process}
-
   \item{verbose}{a length one logical. Show progression of
   the convergence on stdout}
 
@@ -65,20 +62,11 @@ as described in Teo et. al 2007.
   # -- Add a constant dimension to the dataset to learn the intercept
   x <- cbind(x,1)
 
-  train.prediction.model <- function(x,y,lossfun=hingeLoss,...) {
-    m <- bmrm(x,y,lossfun=lossfun,...)
-    m$f <- x \%*\% m$w
-    m$y <- sign(m$f)
-    m$contingencyTable <- table(y,m$y)
-    print(m$contingencyTable)
-    return(m)
-  }
-
   # -- train scalar prediction models with maxMarginLoss and fbetaLoss
   models <- list(
-    svm_L1 = train.prediction.model(x,y,lossfun=hingeLoss,LAMBDA=0.01,regfun='l1'),
-    svm_L2 = train.prediction.model(x,y,lossfun=hingeLoss,LAMBDA=0.1,regfun='l2'),
-    f1_L1 = train.prediction.model(x,y,lossfun=fbetaLoss,LAMBDA=0.01,regfun='l1')
+    svm_L1 = bmrm(x,y,lossfun=hingeLoss,LAMBDA=0.1,regfun='l1',verbose=TRUE),
+    svm_L2 = bmrm(x,y,lossfun=hingeLoss,LAMBDA=0.1,regfun='l2',verbose=TRUE),
+    f1_L1 = bmrm(x,y,lossfun=fbetaLoss,LAMBDA=0.01,regfun='l1',verbose=TRUE)
   )
 
   # -- Plot the dataset and the predictions

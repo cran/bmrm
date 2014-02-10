@@ -1,3 +1,9 @@
+Release 1.8 (10 Feb, 2014)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+* Change code structure to improve memory footprint.
+* Fix multiple issues with L2 regularization.
+* bmrm() now use L1 regularization by default.
+
 Release 1.7 (28 Jan, 2014)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 * The hingeLoss function (for SVM learning) gain a loss.weights paramter to handle unbalanced class distribution

@@ -1,56 +1,82 @@
 
 
-# L2 regularizer
-# TODO: Enable hot starting if possible (do not forgot to check/rescale the starting point to ensure it is feasible)
-l2 <- function(A,b,LAMBDA) {
-  D <- tcrossprod(A,A) / LAMBDA
-  Ale <- matrix(1,1,nrow(D))
-  lb <- matrix(0,nrow(D),1)
-  ub <- matrix(1,nrow(D),1)
-  opt <- ipop(-b,D,Ale,0,lb,ub,1,margin=0.01)
-  alpha <- primal(opt)
-  value <- t(alpha) %*% D %*% alpha / 2 - b %*% alpha
-  w <- -crossprod(A,alpha) / LAMBDA
-  return(list(
-    w = as.vector(w),
-    objectiveValue = -value,
-    regularizationValue = LAMBDA*(t(w) %*% w)/2
-  ))
-}
+
+setClass("rrmSolver",contains="VIRTUAL",slots=c(LAMBDA="numeric"))
+setMethod("initialize",signature(.Object="rrmSolver"),function(.Object,LAMBDA) {
+  .Object@LAMBDA <- LAMBDA
+  .Object
+})
+setGeneric("destroy",function(.Object) standardGeneric("destroy"))
 
 
-# L1 regularizer
-l1 <- function(A,b,LAMBDA) {
-  lp <- initProbCLP()
-  on.exit(delProbCLP(lp))
-  setLogLevelCLP(lp,0)
-  
-  setObjDirCLP(lp,-1)
-  loadProblemCLP(lp,ncols=1,nrows=nrow(A),
-                 ia=seq_len(nrow(A))-1L,ja=c(0L,nrow(A)),ra=rep(-1,nrow(A)),
-                 lb=0,obj_coef=-1,rub=-b)
-  lb <- rep(0,ncol(A))
-  ub <- rep(.Machine$double.xmax,ncol(A))
-  obj <- rep(-LAMBDA,ncol(A))
-  addColsCLP(lp,ncol(A),lb=lb,ub=ub,obj=obj,colst=seq(0L,length(A),by=nrow(A)),rows=row(A)-1L,val=A)
-  addColsCLP(lp,ncol(A),lb=lb,ub=ub,obj=obj,colst=seq(0L,length(A),by=nrow(A)),rows=row(A)-1L,val=-A)
-  solveInitialCLP(lp)
 
-  if (getSolStatusCLP(lp)!=0) warning("issue in the LP solver:",status_codeCLP(getSolStatusCLP(lp)))
-
-  W <- getColPrimCLP(lp)
-  u <- W[-1][1:ncol(A)]
-  v <- W[-1][-1:-ncol(A)]
+#
+# -- Define Solver for L1 regularization
+# 
+setClass("rrmSolverL1",contains="rrmSolver",slots=c(lp="ANY"))
+setMethod("initialize",signature(.Object="rrmSolverL1"),function(.Object,...) {
+  .Object <- callNextMethod()
+  .Object@lp <- initProbCLP()
+  setLogLevelCLP(.Object@lp,0)
+  setObjDirCLP(.Object@lp,-1)
+  .Object
+})
+setMethod("destroy","rrmSolverL1",function(.Object) {
+  delProbCLP(.Object@lp)
+})
+setMethod("rbind2",signature(x="rrmSolverL1",y="ANY"),function(x,y,b,...) {
+  nc <- 2L*length(y)+1L
+  if (getNumRowsCLP(x@lp)<1L) {
+    resizeCLP(x@lp,0L,nc)
+    chgObjCoefsCLP(x@lp,c(-1,rep_len(-x@LAMBDA,nc-1L)))
+    chgColLowerCLP(x@lp,rep_len(0,nc))
+    chgColUpperCLP(x@lp,rep_len(.Machine$double.xmax,nc))
+  }
+  addRowsCLP(x@lp,1L,-.Machine$double.xmax,-b,c(0L,nc),seq_len(nc)-1L,c(-1,y,-y))
+})
+setMethod("solve",signature(a="rrmSolverL1"),function(a,...) {
+  nc <- getNumColsCLP(a@lp)
+  solveInitialCLP(a@lp)
+  if (getSolStatusCLP(a@lp)!=0) warning("issue in the LP solver:",status_codeCLP(getSolStatusCLP(a@lp)))
+  W <- getColPrimCLP(a@lp)
+  u <- W[-1][seq_len(nc%/%2)]
+  v <- W[-1][-seq_len(nc%/%2)]
   w <- u - v
-  return(list(
-    w = w,
-    objectiveValue = -getObjValCLP(lp),
-    regularizationValue = LAMBDA*sum(abs(w))
-  ))
-}
+  return(list(w = w, obj = -getObjValCLP(a@lp), regval = sum(abs(w))))  
+})
 
 
 
+
+
+
+#
+# -- Define Solver for L2 regularization
+# 
+setClass("rrmSolverL2",contains="rrmSolver",slots=c(env="environment"))
+setMethod("initialize",signature(.Object="rrmSolverL2"),function(.Object,...) {
+  .Object <- callNextMethod()
+  .Object@env <- new.env()
+  with(.Object@env,{A <- matrix(,0,0);b <- numeric(0)})
+  .Object
+})
+setMethod("destroy","rrmSolverL2",function(.Object) {
+})
+setMethod("rbind2",signature(x="rrmSolverL2",y="ANY"),function(x,y,b,...) {
+  if (ncol(x@env$A)!=length(y)) dim(x@env$A)[2] <- length(y)
+  x@env$A <- rbind(x@env$A,y)
+  x@env$b <- c(x@env$b,b)
+})
+setMethod("solve",signature(a="rrmSolverL2"),function(a,...) {
+  Ale <- matrix(1,1,nrow(a@env$A))
+  H <- tcrossprod(a@env$A)
+  opt <- ipop(c=-a@LAMBDA*a@env$b,H,Ale,0,rep_len(0,ncol(Ale)),rep_len(1,ncol(Ale)),1,sigf=5)
+  alpha <- primal(opt)
+  w <- as.vector(-crossprod(a@env$A,alpha) / a@LAMBDA)
+  regval <- 0.5*crossprod(w)
+  R <- max(0,a@env$A %*% w + a@env$b)
+  return(list(w = as.vector(w), obj = a@LAMBDA*regval+R, regval = regval))
+})
 
 
 #' Bundle Methods for Regularized Risk Minimization
@@ -68,13 +94,13 @@ l1 <- function(A,b,LAMBDA) {
 #' @param EPSILON_TOL control optimization stoping criteria: the optimization end when the optimization gap is below this threshold
 #' @param regfun type of regularization to consider in the optimization. It can either be the character string "l1" for L1-norm regularization, 
 #'   or "l2" (default) for L2-norm regularization.
-#' @param w0 a numeric vector used to initialize the minimization process
 #' @param verbose a length one logical. Show progression of the convergence on stdout
 #' @param ... additional argument passed to the loss function
 #' @return a list of 2 fileds: "w" the optimized weight vector; "log" a data.frame showing the trace of important values in the optimization process.
 #' @export
 #' @import clpAPI
 #' @import kernlab
+#' @import methods
 #' @references Teo et al.
 #'   A Scalable Modular Convex Solver for Regularized Risk Minimization.
 #'   KDD 2007
@@ -88,20 +114,11 @@ l1 <- function(A,b,LAMBDA) {
 #'   # -- Add a constant dimension to the dataset to learn the intercept
 #'   x <- cbind(x,1)
 #'   
-#'   train.prediction.model <- function(x,y,lossfun=hingeLoss,...) {
-#'     m <- bmrm(x,y,lossfun=lossfun,...)
-#'     m$f <- x %*% m$w
-#'     m$y <- sign(m$f)
-#'     m$contingencyTable <- table(y,m$y)
-#'     print(m$contingencyTable)
-#'     return(m)
-#'   }
-#'   
 #'   # -- train scalar prediction models with maxMarginLoss and fbetaLoss 
 #'   models <- list(
-#'     svm_L1 = train.prediction.model(x,y,lossfun=hingeLoss,LAMBDA=0.01,regfun='l1'),
-#'     svm_L2 = train.prediction.model(x,y,lossfun=hingeLoss,LAMBDA=0.1,regfun='l2'),
-#'     f1_L1 = train.prediction.model(x,y,lossfun=fbetaLoss,LAMBDA=0.01,regfun='l1')
+#'     svm_L1 = bmrm(x,y,lossfun=hingeLoss,LAMBDA=0.1,regfun='l1',verbose=TRUE),
+#'     svm_L2 = bmrm(x,y,lossfun=hingeLoss,LAMBDA=0.1,regfun='l2',verbose=TRUE),
+#'     f1_L1 = bmrm(x,y,lossfun=fbetaLoss,LAMBDA=0.01,regfun='l1',verbose=TRUE)
 #'   )
 #'   
 #'   # -- Plot the dataset and the predictions
@@ -121,47 +138,31 @@ l1 <- function(A,b,LAMBDA) {
 #'     lines(m$log$epsilon,type="o",col=i,lwd=3)
 #'   }
 #'   
-bmrm <- function(...,LAMBDA=1,MAX_ITER=100,EPSILON_TOL=0.01,lossfun=hingeLoss,regfun=c('l2','l1'),w0=0,verbose=FALSE) {
-# Inner Variables:
-#       A: current gradient matrix
-#       b: current optimization vector
-#    loss: current loss value
-#     reg: current optimization status
-		
+bmrm <- function(...,LAMBDA=1,MAX_ITER=100,EPSILON_TOL=0.01,lossfun=hingeLoss,regfun=c('l1','l2'),verbose=FALSE) {		
 	regfun <- match.arg(regfun)
-	regfun <- get(regfun, mode = "function",parent.env(environment()))
-	loss <- lossfun(w0,cache=NULL,...)
-	A <- matrix(as.vector(loss$gradient),1,)
-	b <- loss$value - crossprod(rep_len(w0,length(loss$gradient)),as.vector(loss$gradient))
-
-	loop <- list(loss=loss$value,regVal=NA,lb=NA,ub=NA,epsilon=NA,nnz=NA)
-	for (i in 2:MAX_ITER) {
-		reg <- regfun(A,b,LAMBDA) # Find minimizer w_i = argmin(J_i(w)), using [A,b]
-		
-		# -- compute gradient ai and offset bi, and update [A,b]
-		loss <- lossfun(reg$w,cache=loss$cache,...)
+  rrm <- switch(regfun,l1=new("rrmSolverL1",LAMBDA=LAMBDA),l2=new("rrmSolverL2",LAMBDA=LAMBDA))
+  on.exit(destroy(rrm))
+  loss <- list(cache=NULL)
+  opt <- list(w=0,regval=0)
+  ub <- +Inf
+	log <- list(loss=numeric(),regVal=numeric(),lb=numeric(),ub=numeric(),epsilon=numeric(),nnz=integer())
+	for (i in 1:MAX_ITER) {
+	  loss <- lossfun(opt$w,cache=loss$cache,...)
     loss$gradient <- as.vector(loss$gradient)
-		A <- rbind(A,loss$gradient)
-		b <- c(b,loss$value - crossprod(reg$w,loss$gradient))
-
-		# -- check convergeance (duality gap epsilon close to zero)
-		loop$loss[i] <- loss$value
-		loop$regVal[i] <- reg$regularizationValue
-		loop$lb[i] <- reg$objectiveValue
-    loop$nnz[i] <- sum(reg$w != 0)
-    loop$numCst[i] <- length(b)
-		if (i>3) {
-      Ri <- max(0,(A %*% reg$w) + b)
-			loop$ub[i] <- min(loop$ub[i-1],Ri + loop$regVal[i],na.rm=TRUE)
-			loop$epsilon[i] <- loop$ub[i] - loop$lb[i]
-			if (loop$epsilon[i] < EPSILON_TOL) break
-		}
-    if (verbose) {cat(paste("i=",i,sep=''),paste(names(loop),sapply(loop,'[',i),sep='='),sep=',');cat("\n")}
+    opt$w <- rep_len(opt$w,length(loss$gradient))
+    rbind2(rrm,loss$gradient,loss$value - crossprod(opt$w,loss$gradient))
+	  ub <- min(ub,loss$value + LAMBDA*opt$regval)
+	  opt <- solve(rrm)
+    lb <- opt$obj
+    log$loss[i]<-loss$value;log$regVal[i]<-opt$regval;log$lb[i]<-lb;log$ub[i]<-ub;log$epsilon[i]<-ub-lb;log$nnz[i]<-sum(opt$w!=0)
+	  if (verbose) {cat(sprintf("i=%d,eps=%g (=%g-%g),nnz=%d,loss=%g,reg=%g\n",i,log$epsilon[i],log$ub[i],log$lb[i],log$nnz[i],log$loss[i],log$regVal[i]))}
+    if (ub-lb < EPSILON_TOL) break
 	}
 	if (i >= MAX_ITER) warning('max # of itertion exceeded')
-	return(list(
-    w=reg$w,
-    log=as.data.frame(loop)
-  ))
+	return(list(w=opt$w,log=as.data.frame(log)))
 }
+
+
+
+
 
