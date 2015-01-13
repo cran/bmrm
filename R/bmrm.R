@@ -1,106 +1,69 @@
 
-
-
-setClass("rrmSolver",contains="VIRTUAL",slots=c(LAMBDA="numeric"))
-setMethod("initialize",signature(.Object="rrmSolver"),function(.Object,LAMBDA) {
-  .Object@LAMBDA <- LAMBDA
-  .Object
-})
-setGeneric("destroy",function(.Object) standardGeneric("destroy"))
-
-
-
 #
 # -- Define Solver for L1 regularization
 # 
-setClass("rrmSolverL1",contains="rrmSolver",slots=c(lp="ANY"))
-setMethod("initialize",signature(.Object="rrmSolverL1"),function(.Object,...) {
-  .Object <- callNextMethod()
-  .Object@lp <- initProbCLP()
-  setLogLevelCLP(.Object@lp,0)
-  setObjDirCLP(.Object@lp,-1)
-  .Object
-})
-setMethod("destroy","rrmSolverL1",function(.Object) {
-  delProbCLP(.Object@lp)
-})
-setMethod("rbind2",signature(x="rrmSolverL1",y="ANY"),function(x,y,b,...) {
-  nc <- 2L*length(y)+1L
-  if (getNumRowsCLP(x@lp)<1L) {
-    resizeCLP(x@lp,0L,nc)
-    chgObjCoefsCLP(x@lp,c(-1,rep_len(-x@LAMBDA,nc-1L)))
-    chgColLowerCLP(x@lp,rep_len(0,nc))
-    chgColUpperCLP(x@lp,rep_len(.Machine$double.xmax,nc))
-  }
-  addRowsCLP(x@lp,1L,-.Machine$double.xmax,-b,c(0L,nc),seq_len(nc)-1L,c(-1,y,-y))
-})
-setMethod("solve",signature(a="rrmSolverL1"),function(a,...) {
-  nc <- getNumColsCLP(a@lp)
-  solveInitialCLP(a@lp)
-  if (getSolStatusCLP(a@lp)!=0) warning("issue in the LP solver:",status_codeCLP(getSolStatusCLP(a@lp)))
-  W <- getColPrimCLP(a@lp)
-  u <- W[-1][seq_len(nc%/%2)]
-  v <- W[-1][-seq_len(nc%/%2)]
-  w <- u - v
-  return(list(w = w, obj = -getObjValCLP(a@lp), regval = sum(abs(w))))  
-})
-
-
-
-
+newL1Solver <- function(LAMBDA) {
+  within(list(),{
+    regval <- function(w) {
+      sum(abs(w))
+    }
+    optimize <- function(A,b) {
+      opt <- lp(direction = "max",
+         objective.in = c(-1,rep_len(-LAMBDA,2L*ncol(A))),
+         const.mat = cbind(-1,A,-A),
+         const.dir = rep("<=",nrow(A)),
+         const.rhs = -b
+      )
+      if (opt$status!=0) warning("issue in the LP solver:",opt$status)
+      W <- matrix(opt$solution[-1L],,2L)
+      return(list(w = W[,1L]-W[,2L], obj = -opt$objval))
+    }
+  })
+}
 
 
 #
 # -- Define Solver for L2 regularization
-# 
-setClass("rrmSolverL2",contains="rrmSolver",slots=c(env="environment"))
-setMethod("initialize",signature(.Object="rrmSolverL2"),function(.Object,...) {
-  .Object <- callNextMethod()
-  .Object@env <- new.env()
-  with(.Object@env,{A <- matrix(,0,0);b <- numeric(0)})
-  .Object
-})
-setMethod("destroy","rrmSolverL2",function(.Object) {
-})
-setMethod("rbind2",signature(x="rrmSolverL2",y="ANY"),function(x,y,b,...) {
-  if (ncol(x@env$A)!=length(y)) dim(x@env$A)[2] <- length(y)
-  x@env$A <- rbind(x@env$A,y)
-  x@env$b <- c(x@env$b,b)
-})
-setMethod("solve",signature(a="rrmSolverL2"),function(a,...) {
-  Ale <- matrix(1,1,nrow(a@env$A))
-  H <- tcrossprod(a@env$A)
-  opt <- ipop(c=-a@LAMBDA*a@env$b,H,Ale,0,rep_len(0,ncol(Ale)),rep_len(1,ncol(Ale)),1,sigf=5)
-  alpha <- primal(opt)
-  w <- as.vector(-crossprod(a@env$A,alpha) / a@LAMBDA)
-  regval <- 0.5*crossprod(w)
-  R <- max(0,a@env$A %*% w + a@env$b)
-  return(list(w = as.vector(w), obj = a@LAMBDA*regval+R, regval = regval))
-})
+#
+newL2Solver <- function(LAMBDA) {
+  within(list(),{
+    regval <- function(w) {
+      0.5*crossprod(w)
+    }
+    optimize <- function(A,b) {
+      Ale <- matrix(1,1L,nrow(A)+1L)
+      H <- matrix(0,1L+nrow(A),1L+nrow(A))
+      H[-1,-1] <- tcrossprod(A)
+      opt <- LowRankQP(H,c(0,-LAMBDA*b),Ale,1,rep(1,nrow(A)+1L),method="LU")
+      alpha <- opt$alpha[-1L]
+      w <- as.vector(-crossprod(A,alpha) / LAMBDA)
+      R <- max(0,A %*% w + b)
+      return(list(w = w, obj = LAMBDA*regval(w)+R))
+    }
+  })
+}
+
 
 
 #' Bundle Methods for Regularized Risk Minimization
 #' 
 #' Implement Bundle Methods for Regularized Risk Minimization as described in Teo et. al 2007.
+#' Find w that minimize: LAMBDA*regularization_norm(w) + lossfun(w)
+#' where regularization_norm is either L1 or L2.
 #' 
 #' @param lossfun the loss function to use in the optimization (e.g.: hingeLoss, softMarginVectorLoss). 
 #'   The function must evaluate the loss value and its gradient for a given point vector (w).
-#'   The function must be of the form lossfun(w,...,cache=NULL), i.e. accept as first parameter the vector of weight w, and unused arguments to bmrm().
-#'   The return value must be a list(value,gardient,cache), where value is the numeric value of the loss for w, and gradient is the gradient vector of the function at point w.
-#'   The "cache" parameter and the "cache" element in the return value can be used to store variable from one call to the next call. 
-#'   The "cache" parameter is set to NULL at the first call, and is set to the previous returned "cache" value at next calls.
 #' @param LAMBDA control the regularization strength in the optimization process. This is the value used as coefficient of the regularization term.
 #' @param MAX_ITER the maximum number of iteration to perform. The function stop with a warning message if the number of iteration exceed this value
 #' @param EPSILON_TOL control optimization stoping criteria: the optimization end when the optimization gap is below this threshold
 #' @param regfun type of regularization to consider in the optimization. It can either be the character string "l1" for L1-norm regularization, 
 #'   or "l2" (default) for L2-norm regularization.
 #' @param verbose a length one logical. Show progression of the convergence on stdout
-#' @param ... additional argument passed to the loss function
+#' @param w0 initial weight vector where optimization start
 #' @return a list of 2 fileds: "w" the optimized weight vector; "log" a data.frame showing the trace of important values in the optimization process.
 #' @export
-#' @import clpAPI
-#' @import kernlab
-#' @import methods
+#' @import LowRankQP
+#' @import lpSolve
 #' @references Teo et al.
 #'   A Scalable Modular Convex Solver for Regularized Risk Minimization.
 #'   KDD 2007
@@ -116,9 +79,9 @@ setMethod("solve",signature(a="rrmSolverL2"),function(a,...) {
 #'   
 #'   # -- train scalar prediction models with maxMarginLoss and fbetaLoss 
 #'   models <- list(
-#'     svm_L1 = bmrm(x,y,lossfun=hingeLoss,LAMBDA=0.1,regfun='l1',verbose=TRUE),
-#'     svm_L2 = bmrm(x,y,lossfun=hingeLoss,LAMBDA=0.1,regfun='l2',verbose=TRUE),
-#'     f1_L1 = bmrm(x,y,lossfun=fbetaLoss,LAMBDA=0.01,regfun='l1',verbose=TRUE)
+#'     svm_L1 = bmrm(hingeLoss(x,y),LAMBDA=0.1,regfun='l1',verbose=TRUE),
+#'     svm_L2 = bmrm(hingeLoss(x,y),LAMBDA=0.1,regfun='l2',verbose=TRUE),
+#'     f1_L1 = bmrm(fbetaLoss(x,y),LAMBDA=0.01,regfun='l1',verbose=TRUE)
 #'   )
 #'   
 #'   # -- Plot the dataset and the predictions
@@ -138,25 +101,49 @@ setMethod("solve",signature(a="rrmSolverL2"),function(a,...) {
 #'     lines(m$log$epsilon,type="o",col=i,lwd=3)
 #'   }
 #'   
-bmrm <- function(...,LAMBDA=1,MAX_ITER=100,EPSILON_TOL=0.01,lossfun=hingeLoss,regfun=c('l1','l2'),verbose=FALSE) {		
+#'   
+#'   # -- 
+#'   set.seed(123)
+#'   X <- matrix(rnorm(4000*200), 4000, 200)
+#'   beta <- c(rep(1,ncol(X)-4),0,0,0,0)
+#'   Y <- X%*%beta + rnorm(nrow(X))
+#'   model <- bmrm(ladRegressionLoss(X,Y),regfun="l2",LAMBDA=100,MAX_ITER=150)
+#'   layout(1)
+#'   barplot(model$w)
+#'   
+#'   
+bmrm <- function(lossfun,LAMBDA=1,MAX_ITER=100,EPSILON_TOL=0.01,regfun=c('l1','l2'),w0=0,verbose=TRUE) {
 	regfun <- match.arg(regfun)
-  rrm <- switch(regfun,l1=new("rrmSolverL1",LAMBDA=LAMBDA),l2=new("rrmSolverL2",LAMBDA=LAMBDA))
-  on.exit(destroy(rrm))
-  loss <- list(cache=NULL)
-  opt <- list(w=0,regval=0)
-  ub <- +Inf
-	log <- list(loss=numeric(),regVal=numeric(),lb=numeric(),ub=numeric(),epsilon=numeric(),nnz=integer())
+  rrm <- switch(regfun,l1=newL1Solver(LAMBDA),l2=newL2Solver(LAMBDA))
+	
+	loss <- lossfun(w0)
+  g <- as.vector(gradient(loss))
+  A <- matrix(numeric(0),0L,length(g))
+	b <- numeric(0)
+  
+	opt <- list(w=rep(w0,length.out=length(g)))
+	ub <- LAMBDA*rrm$regval(opt$w) + loss
+	log <- list(loss=numeric(),ub=numeric(),epsilon=numeric(),nnz=integer())
 	for (i in 1:MAX_ITER) {
-	  loss <- lossfun(opt$w,cache=loss$cache,...)
-    loss$gradient <- as.vector(loss$gradient)
-    opt$w <- rep_len(opt$w,length(loss$gradient))
-    rbind2(rrm,loss$gradient,loss$value - crossprod(opt$w,loss$gradient))
-	  ub <- min(ub,loss$value + LAMBDA*opt$regval)
-	  opt <- solve(rrm)
-    lb <- opt$obj
-    log$loss[i]<-loss$value;log$regVal[i]<-opt$regval;log$lb[i]<-lb;log$ub[i]<-ub;log$epsilon[i]<-ub-lb;log$nnz[i]<-sum(opt$w!=0)
-	  if (verbose) {cat(sprintf("i=%d,eps=%g (=%g-%g),nnz=%d,loss=%g,reg=%g\n",i,log$epsilon[i],log$ub[i],log$lb[i],log$nnz[i],log$loss[i],log$regVal[i]))}
-    if (ub-lb < EPSILON_TOL) break
+	  # add the new cutting plane to the working set
+	  A <- rbind(A,g)
+	  b <- c(b,loss - crossprod(opt$w,g))
+
+    # optimize underestimator
+	  opt <- rrm$optimize(A,b)
+	  lb <- opt$obj
+    
+	  # log optimization status
+	  log$loss[i]<-loss;log$ub[i]<-ub;log$epsilon[i]<-ub-lb;log$nnz[i]<-sum(opt$w!=0)
+	  if (verbose) {cat(sprintf("%d:gap=%g, loss=%g, ub=%g, nnz=%d\n",i,log$epsilon[i],log$loss[i],log$ub[i],log$nnz[i]))}
+	  
+	  # test for the end of convergence
+	  if (ub-lb < EPSILON_TOL) break
+	  
+    # estimate loss and regularization at new optimum
+	  loss <- lossfun(opt$w)
+	  ub <- min(ub,LAMBDA*rrm$regval(opt$w) + loss)
+	  g <- as.vector(gradient(loss))    
 	}
 	if (i >= MAX_ITER) warning('max # of itertion exceeded')
 	return(list(w=opt$w,log=as.data.frame(log)))

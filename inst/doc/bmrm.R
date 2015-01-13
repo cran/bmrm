@@ -15,8 +15,8 @@
 ###################################################
 ### code chunk number 2: bmrm.Rnw:37-51
 ###################################################
-  train.prediction.model <- function(x,y,lossfun=hingeLoss,...) {
-    m <- bmrm(x,y,lossfun=lossfun,...)
+  train.prediction.model <- function(...) {
+    m <- bmrm(...)
     m$f <- x %*% m$w
     m$y <- sign(m$f)
     m$contingencyTable <- table(y,m$y)
@@ -25,9 +25,9 @@
 
   # -- train models with maxMarginLoss and fbetaLoss
   models <- list(
-    svm_L1 = train.prediction.model(x,y,lossfun=hingeLoss,LAMBDA=0.01,regfun='l1'),
-    svm_L2 = train.prediction.model(x,y,lossfun=hingeLoss,LAMBDA=0.1,regfun='l2'),
-    f1_L1 = train.prediction.model(x,y,lossfun=fbetaLoss,LAMBDA=0.01,regfun='l1')
+    svm_L1 = train.prediction.model(hingeLoss(x,y),LAMBDA=0.01,regfun='l1'),
+    svm_L2 = train.prediction.model(hingeLoss(x,y),LAMBDA=0.1,regfun='l2'),
+    f1_L1 = train.prediction.model(fbetaLoss(x,y),LAMBDA=0.01,regfun='l1')
   )
 
 
