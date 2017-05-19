@@ -51,7 +51,7 @@ newL2Solver <- function(LAMBDA) {
 #' Find w that minimize: LAMBDA*regularization_norm(w) + lossfun(w)
 #' where regularization_norm is either L1 or L2.
 #' 
-#' @param lossfun the loss function to use in the optimization (e.g.: hingeLoss, softMarginVectorLoss). 
+#' @param riskFun the loss function to use in the optimization (e.g.: hingeLoss, softMarginVectorLoss). 
 #'   The function must evaluate the loss value and its gradient for a given point vector (w).
 #' @param LAMBDA control the regularization strength in the optimization process. This is the value used as coefficient of the regularization term.
 #' @param MAX_ITER the maximum number of iteration to perform. The function stop with a warning message if the number of iteration exceed this value
@@ -60,7 +60,7 @@ newL2Solver <- function(LAMBDA) {
 #'   or "l2" (default) for L2-norm regularization.
 #' @param verbose a length one logical. Show progression of the convergence on stdout
 #' @param w0 initial weight vector where optimization start
-#' @return a list of 2 fileds: "w" the optimized weight vector; "log" a data.frame showing the trace of important values in the optimization process.
+#' @return the optimized weight vector, with attribute "log" beging a data.frame storing a trace of important values of the optimization process.
 #' @export
 #' @import LowRankQP
 #' @import lpSolve
@@ -89,34 +89,37 @@ newL2Solver <- function(LAMBDA) {
 #'   plot(x,pch=20+y,main="dataset & hyperplanes")
 #'   legend('bottomright',legend=names(models),col=seq_along(models),lty=1,cex=0.75,lwd=3)
 #'   for(i in seq_along(models)) {
-#'     m <- models[[i]]
-#'     if (m$w[2]!=0) abline(-m$w[3]/m$w[2],-m$w[1]/m$w[2],col=i,lwd=3)
+#'     w <- models[[i]]
+#'     if (w[2]!=0) abline(-w[3]/w[2],-w[1]/w[2],col=i,lwd=3)
 #'   }
 #'   
-#'   rx <- range(na.rm=TRUE,1,unlist(lapply(models,function(e) nrow(e$log))))
-#'   ry <- range(na.rm=TRUE,0,unlist(lapply(models,function(e) e$log$epsilon)))
+#'   rx <- range(na.rm=TRUE,1,unlist(lapply(models,function(e) nrow(attr(e,"log")))))
+#'   ry <- range(na.rm=TRUE,0,unlist(lapply(models,function(e) attr(e,"log")$epsilon)))
 #'   plot(rx,ry,type="n",ylab="epsilon gap",xlab="iteration",main="evolution of the epsilon gap")
 #'   for(i in seq_along(models)) {
-#'     m <- models[[i]]
-#'     lines(m$log$epsilon,type="o",col=i,lwd=3)
+#'     log <- attr(models[[i]],"log")
+#'     lines(log$epsilon,type="o",col=i,lwd=3)
 #'   }
 #'   
 #'   
-#'   # -- 
+#'   # -- fit a least absolute deviation linear model on a synthetic dataset
+#'   # -- containing 196 meaningful features and 4 noisy features. Then
+#'   # -- check if the model has detected the noise
 #'   set.seed(123)
 #'   X <- matrix(rnorm(4000*200), 4000, 200)
 #'   beta <- c(rep(1,ncol(X)-4),0,0,0,0)
 #'   Y <- X%*%beta + rnorm(nrow(X))
-#'   model <- bmrm(ladRegressionLoss(X,Y),regfun="l2",LAMBDA=100,MAX_ITER=150)
+#'   w <- bmrm(ladRegressionLoss(X,Y),regfun="l2",LAMBDA=100,MAX_ITER=150)
 #'   layout(1)
-#'   barplot(model$w)
+#'   barplot(as.vector(w))
 #'   
 #'   
-bmrm <- function(lossfun,LAMBDA=1,MAX_ITER=100,EPSILON_TOL=0.01,regfun=c('l1','l2'),w0=0,verbose=TRUE) {
+bmrm <- function(riskFun,LAMBDA=1,MAX_ITER=100,EPSILON_TOL=0.01,regfun=c('l1','l2'),w0=0,verbose=TRUE) {
 	regfun <- match.arg(regfun)
+	if (regfun=="l2") warning("for l2 regularization, the use of nrbm() is strongly recommended.")
   rrm <- switch(regfun,l1=newL1Solver(LAMBDA),l2=newL2Solver(LAMBDA))
 	
-	loss <- lossfun(w0)
+	loss <- riskFun(w0)
   g <- as.vector(gradient(loss))
   A <- matrix(numeric(0),0L,length(g))
 	b <- numeric(0)
@@ -135,18 +138,19 @@ bmrm <- function(lossfun,LAMBDA=1,MAX_ITER=100,EPSILON_TOL=0.01,regfun=c('l1','l
     
 	  # log optimization status
 	  log$loss[i]<-loss;log$ub[i]<-ub;log$epsilon[i]<-ub-lb;log$nnz[i]<-sum(opt$w!=0)
-	  if (verbose) {cat(sprintf("%d:gap=%g, loss=%g, ub=%g, nnz=%d\n",i,log$epsilon[i],log$loss[i],log$ub[i],log$nnz[i]))}
+	  if (verbose) {cat(sprintf("%d:gap=%g obj=%g reg=%g risk=%g w=[%g,%g] nnz=%d\n",i,log$epsilon[i],log$ub[i],log$ub[i]-log$loss[i],log$loss[i],min(opt$w),max(opt$w),log$nnz[i]))}
 	  
 	  # test for the end of convergence
 	  if (ub-lb < EPSILON_TOL) break
 	  
     # estimate loss and regularization at new optimum
-	  loss <- lossfun(opt$w)
+	  loss <- riskFun(opt$w)
 	  ub <- min(ub,LAMBDA*rrm$regval(opt$w) + loss)
 	  g <- as.vector(gradient(loss))    
 	}
 	if (i >= MAX_ITER) warning('max # of itertion exceeded')
-	return(list(w=opt$w,log=as.data.frame(log)))
+  attr(opt$w,"log") <- as.data.frame(log)
+	return(opt$w)
 }
 
 

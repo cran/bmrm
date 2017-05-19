@@ -1,3 +1,9 @@
+Release 3.2 (18 Apr, 2017)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+* Implement Linear Programmed version of SVM and multi-class-SVM with L1 regularization
+* Add ontologyLoss for class prediction problem that belong to an ontology structure
+* Add loss.weights argument to several loss functions to allow putting weights on each  instance
+
 Release 3.0 (13 Jan, 2015)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 * Change loss function structure to now return the 1-arg function to optimize. 
