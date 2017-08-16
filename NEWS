@@ -1,3 +1,13 @@
+Release 3.4 (11 Jul, 2017)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+* Replace bmrm() method by a new simplified implementation nrbmL1()
+* Change loss function interface: now return the given estimation point with 
+  attributes `lvalue` and `gradient` set. This change allow nrbm() to return 
+  typed values.
+* Adapt all loss functions to the new interface
+* Add predict() methods to all loss functions
+* Add machine learing helper functions `balanced.cv.fold()` and `roc.stat()`
+
 Release 3.2 (18 Apr, 2017)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 * Implement Linear Programmed version of SVM and multi-class-SVM with L1 regularization

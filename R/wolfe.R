@@ -12,7 +12,6 @@
 #'   representing the optimization point and return a numeric value, with 
 #'   gradient attribute setted
 #' @param x0 initial search point
-#' @param f0 initial function value
 #' @param s0 direction of the search from x0
 #' @param ... additional parameters passed to f()
 #' @param a1 first step coefficient guess
@@ -20,62 +19,70 @@
 #' @param c1 lower bound
 #' @param c2 upper bound
 #' @param maxiter maximum number of iteration for this linesearch
-#' @return the optimal point as a 3 element list
+#' @param f.adjust an adjustment method to adjust lvalue and gradient of f
+#' @return the optimal point
 #' @references Do and Artieres
 #'   Regularized Bundle Methods for Convex and Non-Convex Risks
 #'   JMLR 2012
+#' @export
 #' @author Julien Prados
-#' @seealso \code{\link{bmrm}} \code{\link{nrbm}}
-wolfe.linesearch <- function(f, x0, f0, s0, ..., a1=0.5, amax=1.1, c1=1e-4, c2=0.9, maxiter=5L) {
-  gradient(f0) <- crossprod(gradient(f0),s0)
+#' @seealso \code{\link{nrbm}}
+wolfe.linesearch <- function(f, x0, s0, ..., a1=0.5, amax=1.1, c1=1e-4, c2=0.9, maxiter=5L,f.adjust=identity) {
+  x0 <- f.adjust(x0)
+  g0 <- as.vector(crossprod(gradient(x0),s0))
   
-  zoom <- function(alo, ahi, flo, fhi) {
-    if (alo>ahi) stop("[alo,ahi] is empty")
-    for(i in seq_len(maxiter)) {
+  zoom <- function(alo, ahi, flo, fhi, glo, ghi, maxiter) {
+    for(j in seq_len(maxiter)) {
       # find aj in [alo,ahi] using cubic interpolation
-      d1 <- gradient(flo) + gradient(fhi) - 3*(flo-fhi)/(alo-ahi)
-      d2 <- sqrt(max(d1*d1 - gradient(flo)*gradient(fhi),0))
-      aj <- ahi - (ahi-alo)*(gradient(fhi)+d2-d1)/(gradient(fhi)-gradient(flo)+2*d2)      
-      if (aj < alo || aj > ahi) aj <- (alo+ahi)/2
+      d1 <- glo + ghi - 3*(flo-fhi)/(alo-ahi)
+      d2 <- sqrt(max(d1*d1 - glo*ghi,0))
+      aj <- ahi - (ahi-alo)*(ghi+d2-d1)/(ghi-glo+2*d2)
       
-      xj <- x0 + aj*s0
-      fj <- f(xj, ...)
-      gradient(fj) <- crossprod(gradient(fj),s0)
-      if (fj > f0 + c1*aj*gradient(f0) || fj > flo) {
+      if (alo>ahi) 
+        if (aj < alo || aj > ahi) aj <- (alo+ahi)/2
+      else
+        if (aj > alo || aj < ahi) aj = (alo+ahi)/2;
+      Xj <- f(x0 + aj*s0, ...)
+      xj <- f.adjust(Xj)
+      gj <- as.vector(crossprod(gradient(xj),s0))
+      if (lvalue(xj) > lvalue(x0) + c1*aj*g0 || lvalue(xj) > flo) {
         ahi <- aj
-        fhi <- fj
+        fhi <- lvalue(xj)
       } else {
-        if (abs(gradient(fj)) <= -c2*gradient(f0)) break;
-        if (gradient(fj)*(ahi-alo) >= 0) {
+        if (abs(gj) <= -c2*g0) break;
+        if (gj*(ahi-alo) >= 0) {
           ahi <- alo
           fhi <- flo
         }
         alo <- aj
-        flo <- fj
+        flo <- lvalue(xj)
       }
       if (abs(alo-ahi) <= 0.01*alo) break;
     }
-    if (i==maxiter) warning("iteration stop after maxiter loops")
-    list(astar=aj,xstar=xj,fstar=fj)
+    attr(Xj,"neval") <- j
+    Xj
   }
   
-  ai_1 <- 0
-  fi_1 <- f0
+  
+  ai_1 <- 0;fi_1 <- lvalue(x0);gi_1 <- g0
+  ai <- a1
   for(i in seq_len(maxiter)) {
-    ai <- if (i==1L) a1 else (ai + amax)/2
-    xi <- x0+ai*s0
-    fi <- f(xi,...)
-    gradient(fi) <- crossprod(gradient(fi),s0)
+    Xi <- f(x0+ai*s0,...)
+    xi <- f.adjust(Xi)
+    gi <- as.vector(crossprod(gradient(xi),s0))
     
-    if (fi > (f0+c1*ai*gradient(f0)) || (fi >= fi_1 && i > 1)) return(zoom(ai_1, ai, fi_1, fi))
-    if (abs(gradient(fi)) <= -c2*gradient(f0)) break
-    if (gradient(fi) >= 0) return(zoom(ai, ai_1, fi, fi_1))
+    # test for end of search
+    if ((lvalue(xi) > lvalue(x0)+c1*ai*g0) || (lvalue(xi) >= fi_1 && i > 1)) {Xi <- zoom(ai_1, ai, fi_1, lvalue(xi), gi_1, gi, maxiter=maxiter-i+1);break}
+    if (abs(gi) <= -c2*g0) break
+    if (gi >= 0) {Xi <- zoom(ai, ai_1, lvalue(xi), fi_1, gi, gi_1, maxiter=maxiter-i+1);break}
     if (abs(ai - amax) <= 0.01*amax) break
-   
+    
     # update variables for next iteration
-    ai_1 <- ai
-    fi_1 <- fi
+    ai_1 <- ai; fi_1 <- lvalue(xi); gi_1 <- gi
+    ai <- (ai + amax)/2
   }
-  if (i==maxiter) warning("iteration stop after maxiter loops") 
-  list(astar=ai, xstar=xi, fstar=fi)
+  attr(Xi,"neval") <- i + ifelse(is.null(attr(Xi,"neval")),0,attr(Xi,"neval"))
+  Xi
 }
+
+

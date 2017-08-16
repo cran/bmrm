@@ -1,8 +1,8 @@
 Package: bmrm
 Type: Package
 Title: Bundle Methods for Regularized Risk Minimization Package
-Version: 3.3
-Date: 2017-04-18
+Version: 3.4
+Date: 2017-08-16
 Depends: R (>= 3.0.2)
 Imports: lpSolve, LowRankQP, matrixStats
 Suggests: knitr
@@ -23,6 +23,6 @@ Description: Bundle methods for minimization of convex and non-convex risk
 License: GPL-3
 RoxygenNote: 6.0.1
 NeedsCompilation: no
-Packaged: 2017-05-19 12:02:18 UTC; juju
+Packaged: 2017-08-16 15:23:50 UTC; root
 Repository: CRAN
-Date/Publication: 2017-05-19 21:24:23 UTC
+Date/Publication: 2017-08-16 20:09:19 UTC

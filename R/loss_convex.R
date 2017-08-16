@@ -1,8 +1,15 @@
 
 
+
+set.convex <- function(f) {
+  is.convex(f) <- TRUE
+  f
+}
+
+
 #' Loss functions to perform a regression
 #' 
-#' @name regressionLosses
+#' @name linearRegressionLoss
 #' @param x matrix of training instances (one instance by row)
 #' @param y numeric vector of values representing the training labels for each instance in x
 #' @param loss.weights numeric vector of loss weights to incure for each instance of x. 
@@ -11,18 +18,22 @@
 #' @references Teo et al.
 #'   Bundle Methods for Regularized Risk Minimization
 #'   JMLR 2010
-#' @seealso bmrm
+#' @seealso nrbm
 #' @examples
 #'   x <- cbind(intercept=100,data.matrix(iris[1:2]))
 #'   y <- iris[[3]]
-#'   w <- bmrm(lmsRegressionLoss(x,y))
-#'   w <- bmrm(ladRegressionLoss(x,y))
-#'   w <- bmrm(quantileRegressionLoss(x,y,q=0.5))
-#'   w <- bmrm(epsilonInsensitiveRegressionLoss(x,y,epsilon=1))
+#'   w <- nrbm(lmsRegressionLoss(x,y))
+#'   w <- nrbm(ladRegressionLoss(x,y))
+#'   w <- nrbm(quantileRegressionLoss(x,y,q=0.5))
+#'   w <- nrbm(epsilonInsensitiveRegressionLoss(x,y,epsilon=1))
 NULL
 
+#' @export
+predict.linearRegressionLoss <- function(object,x,...) {
+  x %*% object
+}
 
-#' @describeIn regressionLosses Least Mean Square regression
+#' @describeIn linearRegressionLoss Least Mean Square regression
 #' @export
 lmsRegressionLoss <- function(x,y,loss.weights=1) {
   if (!is.matrix(x)) stop('x must be a numeric matrix')
@@ -30,19 +41,20 @@ lmsRegressionLoss <- function(x,y,loss.weights=1) {
   if (nrow(x) != length(y)) stop('dimensions of x and y mismatch')
   loss.weights <- rep(loss.weights,length.out=length(y))
   
-  function(w) {
+  set.convex(function(w) {
     w <- cbind(matrix(numeric(),ncol(x),0),w)
     f <- x %*% w
     loss <- loss.weights * 0.5*(f-y)^2
     grad <- loss.weights * (f-y)
-    val <- colSums(loss)
-    gradient(val) <- crossprod(x,grad)
-    return(val)
-  }
+    lvalue(w) <- colSums(loss)
+    gradient(w) <- crossprod(x,grad)
+    class(w) <- "linearRegressionLoss"
+    return(w)
+  })
 }
 
 
-#' @describeIn regressionLosses Least Absolute Deviation regression
+#' @describeIn linearRegressionLoss Least Absolute Deviation regression
 #' @export
 ladRegressionLoss <- function(x,y,loss.weights=1) {
   if (!is.matrix(x)) stop('x must be a numeric matrix')
@@ -50,19 +62,20 @@ ladRegressionLoss <- function(x,y,loss.weights=1) {
   if (nrow(x) != length(y)) stop('dimensions of x and y mismatch')
   loss.weights <- rep(loss.weights,length.out=length(y))
 
-  function(w) {
+  set.convex(function(w) {
     w <- cbind(matrix(numeric(),ncol(x),0),w)
     f <- x %*% w
     loss <- loss.weights * abs(f-y)
     grad <- loss.weights * sign(f-y)
-    val <- colSums(loss)
-    gradient(val) <- crossprod(x,grad)
-    return(val)
-  }
+    lvalue(w) <- colSums(loss)
+    gradient(w) <- crossprod(x,grad)
+    class(w) <- "linearRegressionLoss"
+    return(w)
+  })
 }
 
 
-#' @describeIn regressionLosses Quantile Regression
+#' @describeIn linearRegressionLoss Quantile Regression
 #' @param q a numeric value in the range [0-1] defining quantile value to consider
 #' @export
 quantileRegressionLoss <- function(x,y,q=0.5,loss.weights=1) {
@@ -72,19 +85,20 @@ quantileRegressionLoss <- function(x,y,q=0.5,loss.weights=1) {
   if (length(q)!=1 || q<0 || q>1) stop('q must be a length one numeric in the range [0-1]')
   loss.weights <- rep(loss.weights,length.out=length(y))
   
-  function(w) {
+  set.convex(function(w) {
     w <- cbind(matrix(numeric(),ncol(x),0),w)
     f <- x %*% w
     loss <- loss.weights * pmax(q*(f-y),(1-q)*(y-f))
     grad <- loss.weights * ifelse(f>y,q,q-1)
-    val <- colSums(loss)
-    gradient(val) <- crossprod(x,grad)
-    return(val)
-  }
+    lvalue(w) <- colSums(loss)
+    gradient(w) <- crossprod(x,grad)
+    class(w) <- "linearRegressionLoss"
+    return(w)
+  })
 }
 
 
-#' @describeIn regressionLosses epsilon-insensitive regression (Vapnik et al. 1997)
+#' @describeIn linearRegressionLoss epsilon-insensitive regression (Vapnik et al. 1997)
 #' @param epsilon a numeric value setting tolerance of the epsilon-regression
 #' @export
 epsilonInsensitiveRegressionLoss <- function(x,y,epsilon,loss.weights=1) {
@@ -93,15 +107,16 @@ epsilonInsensitiveRegressionLoss <- function(x,y,epsilon,loss.weights=1) {
   if (nrow(x) != length(y)) stop('dimensions of x and y mismatch')
   loss.weights <- rep(loss.weights,length.out=length(y))
   
-  function(w) {
+  set.convex(function(w) {
     w <- cbind(matrix(numeric(),ncol(x),0),w)
     f <- x %*% w
     loss <- loss.weights * pmax(abs(f-y)-epsilon,0)
     grad <- loss.weights * ifelse(abs(f-y)<epsilon,0,sign(f-y))
-    val <- colSums(loss)
-    gradient(val) <- crossprod(x,grad)
-    return(val)
-  }
+    lvalue(w) <- colSums(loss)
+    gradient(w) <- crossprod(x,grad)
+    class(w) <- "linearRegressionLoss"
+    return(w)
+  })
 }
 
 
@@ -123,151 +138,155 @@ epsilonInsensitiveRegressionLoss <- function(x,y,epsilon,loss.weights=1) {
 
 #' Loss functions for binary classification
 #' 
-#' @name binaryClassificationLosses
+#' @name binaryClassificationLoss
 #' @param x matrix of training instances (one instance by row)
-#' @param y a 2-levels factor representing the training labels for each instance in x
+#' @param y a logical vector representing the training labels for each instance in x
 #' @param loss.weights numeric vector of loss weights to incure for each instance of x. 
 #'        Vector length should match length(y), but values are cycled if not of identical size.
 #' @return a function taking one argument w and computing the loss value and the gradient at point w
 #' @references Teo et al.
 #'   A Scalable Modular Convex Solver for Regularized Risk Minimization.
 #'   KDD 2007
-#' @seealso bmrm
+#' @seealso nrbm
 #' @examples
 #'   x <- cbind(intercept=100,data.matrix(iris[1:2]))
-#'   y <- ifelse(iris$Species=="setosa","setosa","not_setosa")
-#'   w <- bmrm(hingeLoss(x,y)); f <- x %*% w; Y <- sign(f)
-#'   w <- bmrm(logisticLoss(x,y)); f <- x %*% w; Y <- exp(f) / (1+exp(f));
-#'   w <- bmrm(rocLoss(x,y)); f <- x %*% w;
-#'   w <- bmrm(fbetaLoss(x,y)); f <- x %*% w;
+#'   w <- nrbm(hingeLoss(x,iris$Species=="setosa"));predict(w,x)
+#'   w <- nrbm(logisticLoss(x,iris$Species=="setosa"));predict(w,x)
+#'   w <- nrbm(rocLoss(x,iris$Species=="setosa"));predict(w,x)
+#'   w <- nrbm(fbetaLoss(x,iris$Species=="setosa"));predict(w,x)
 NULL
 
+#' @export
+predict.binaryClassificationLoss <- function(object,x,...) {
+  f <- x %*% object
+  y <- f>0
+  attr(y,"decision.value") <- f
+  y
+}
 
-#' @describeIn binaryClassificationLosses Hinge Loss for Linear Support Vector Machine (SVM)
+#' @describeIn binaryClassificationLoss Hinge Loss for Linear Support Vector Machine (SVM)
 #' @export
 hingeLoss <- function(x,y,loss.weights=1) {
-  y <- as.factor(y)
-  if (nlevels(y)!=2) stop("y must have exatly 2 levels")
+  if (!is.logical(y)) stop("y must be logical")
   if (!is.matrix(x)) stop('x must be a numeric matrix')
   if (nrow(x) != length(y)) stop('dimensions of x and y mismatch')
   loss.weights <- rep(loss.weights,length.out=length(y))
-  y <- c(-1,1)[y]
-  
-  function(w) {
+
+  set.convex(function(w) {
     w <- cbind(matrix(numeric(),ncol(x),0),w)
     f <- x %*% w
-    loss <- loss.weights * pmax(1-y*f,0)
-    grad <- loss.weights * (loss>0) * (-y)
-    val <- colSums(loss)
-    gradient(val) <- crossprod(x,grad)
-    return(val)
-  }
+    loss <- loss.weights * pmax(f*ifelse(y,-1,+1)+1,0)
+    grad <- loss.weights * (loss>0) * ifelse(y,-1,+1)
+    lvalue(w) <- colSums(loss)
+    gradient(w) <- crossprod(x,grad)
+    class(w) <- c("hingeLoss","binaryClassificationLoss")
+    return(w)
+  })
 }
 
 
-#' @describeIn binaryClassificationLosses logistic regression
+#' @describeIn binaryClassificationLoss logistic regression
 #' @export
 logisticLoss <- function(x,y,loss.weights=1) {
-  y <- as.factor(y)
-  if (nlevels(y)!=2) stop("y must have exatly 2 levels")
+  if (!is.logical(y)) stop("y must be logical")
   if (!is.matrix(x)) stop('x must be a numeric matrix')
   if (nrow(x) != length(y)) stop('dimensions of x and y mismatch')
   loss.weights <- rep(loss.weights,length.out=length(y))
-  y <- c(-1,1)[y]
-  
-  function(w) {
+
+  set.convex(function(w) {
     w <- cbind(matrix(numeric(),ncol(x),0),w)
     f <- x %*% w
-    loss <- loss.weights * log(1+exp(-y*f))
-    grad <- loss.weights * y*(1/(1+exp(-y*f)) - 1)
-    val <- colSums(loss)
-    gradient(val) <- crossprod(x,grad)
-    return(val)
-  }
+    
+    Y <- ifelse(array(y,dim(f)),-1,+1)
+    loss <- loss.weights * log(1+exp(f*Y))
+    grad <- loss.weights * (-Y/(1+exp(f*Y))+Y)
+    lvalue(w) <- colSums(loss)
+    gradient(w) <- crossprod(x,grad)
+    class(w) <- c("logisticLoss","binaryClassificationLoss")
+    return(w)
+  })
+}
+
+#' @export
+predict.logisticLoss <- function(object,x,...) {
+  y <- NextMethod()
+  f <- attr(y,"decision.value")
+  attr(y,"probability") <- exp(f) / (1+exp(f))
+  y
 }
 
 
-#' @describeIn binaryClassificationLosses Find linear weights maximize area under its ROC curve
+#' @describeIn binaryClassificationLoss Find linear weights maximize area under its ROC curve
 #' @export
 #' @import matrixStats
 rocLoss <- function(x,y) {
-  y <- as.factor(y)
-  if (nlevels(y)!=2) stop("y must have exatly 2 levels")
+  if (!is.logical(y)) stop("y must be logical")
   if (!is.matrix(x)) stop('x must be a numeric matrix')
   if (nrow(x) != length(y)) stop('dimensions of x and y mismatch')
-  y <- c(-1,1)[y]
-  
-  function(w) {
-    w <- cbind(matrix(numeric(),ncol(x),0),w)
-    c <- x %*% w - 0.5*y
-    o <- matrix(row(c)[order(col(c),c)],nrow(c))
-    
-    sp <- matrixStats::colCumsums(0+matrix(y[o]==+1,nrow(o)))
-    sm <- sum(y==-1) - matrixStats::colCumsums(0+matrix(y[o]==-1,nrow(o)))
-    l <- 0*o
-    l[cbind(as.vector(o),as.vector(col(o)))] <- ifelse(y[o]==-1,sp,-sm)
-    l <- l/(sum(y==-1)*sum(y==+1))
 
-    val <- colSums(l*c)
-    gradient(val) <- crossprod(x,l)
-    return(val)
-  }
+  set.convex(function(w) {
+    w <- rep(w,length.out=ncol(x))
+    c <- x %*% w - ifelse(y,0.5,-0.5)
+    o <- order(c)
+    
+    sp <- cumsum(y[o])
+    sm <- sum(!y) - cumsum(!y[o])
+    l <- numeric(length(o))
+    l[o] <- ifelse(!y[o],sp,-sm)
+    l <- l/(sum(!y)*sum(y))
+
+    lvalue(w) <- as.vector(crossprod(l,c))
+    gradient(w) <- crossprod(x,l)
+    class(w) <- "rocLoss"
+    return(w)
+  })
 }
 
+#' @export
+predict.rocLoss <- function(object,x,...) {
+  f <- x %*% object
+  f
+}
 
-
-#' @describeIn binaryClassificationLosses F-beta score loss function
+#' @describeIn binaryClassificationLoss F-beta score loss function
 #' @param beta a numeric value setting the beta parameter is the f-beta score
 #' @export
 fbetaLoss <- function(x,y,beta=1) {
-  y <- as.factor(y)
-  if (nlevels(y)!=2) stop("y must have exatly 2 levels")
+  if (!is.logical(y)) stop("y must be logical")
   if (!is.matrix(x)) stop('x must be a numeric matrix')
   if (nrow(x) != length(y)) stop('dimensions of x and y mismatch')
-  y <- c(-1,1)[y]
-  
+
   .fbeta <- function(TP,TN,P,N,beta) {
     beta2 <- beta*beta
     (1+beta2)*TP / (TP+N-TN+beta2*P)
   }
   
-  function(w) {
-    w <- cbind(matrix(numeric(),ncol(x),0),w)
+  set.convex(function(w) {
+    w <- rep(w,length.out=ncol(x))
     f <- x %*% w
     
-    o <- matrix(row(f)[order(col(f),-f)],nrow(f))
-    op <- matrix(o[y[o]==1],ncol=ncol(o))
-    on <- matrix(o[y[o]==-1],ncol=ncol(o))
-    on <- on[rev(seq(nrow(on))),,drop=FALSE]
-    p <- local({
-      F <- matrix(f[cbind(as.vector(op),as.vector(col(op)))],nrow(op))
-      2*t(colSums(F,na.rm=TRUE) - t(matrixStats::colCumsums(rbind(0,F))))
-    })
-    n <- local({
-      F <- matrix(f[cbind(as.vector(on),as.vector(col(on)))],nrow(on))
-      2*t(colSums(F,na.rm=TRUE) - t(matrixStats::colCumsums(rbind(0,F))))
-    })
-    
-    ij <- expand.grid(i=seq(nrow(p)),j=seq(nrow(n)))
+    o <- order(f,decreasing=TRUE)
+    op <- o[y[o]]
+    on <- rev(o[!y[o]])
+    p <- 2*(sum(f[op]) - cumsum(c(0,f[op])))
+    n <- 2*(sum(f[on]) - cumsum(c(0,f[on])))
     
     # warning: matrix R might be memory consuming
-    R <- 1 - .fbeta(ij$i-1,ij$j-1,nrow(op),nrow(on),beta) - p[ij$i,,drop=FALSE] + n[ij$j,,drop=FALSE]
+    R <- outer(seq_along(p),seq_along(n),function(i,j) {
+      1 - .fbeta(i-1,j-1,length(op),length(on),beta) - p[i] + n[j]
+    })      
     
-    mi <- max.col(t(R),ties.method="first")
-    Y <- matrix(-y,length(y),ncol(w))
+    ij <- arrayInd(which.max(R),dim(R))
+    Y <- -ifelse(y,1,-1)
+    Y[op[seq_len(ij[1,1]-1L)]] <- 1L
+    Y[on[seq_len(ij[1,2]-1L)]] <- -1L
     
-    msk <- t(t(row(Y))<ij$i[mi])
-    Y[cbind(op[msk],col(Y)[msk])] <- 1
-    
-    msk <- t(t(row(Y))<ij$j[mi])
-    Y[cbind(on[msk],col(Y)[msk])] <- -1
-    
-    val <- R[cbind(mi,seq_along(mi))]
-    gradient(val) <- crossprod(x,Y-y)
-    return(val)
-  }
+    lvalue(w) <- R[ij]
+    gradient(w) <- crossprod(x,Y-ifelse(y,1,-1))
+    class(w) <- c("fbetaLoss","binaryClassificationLoss")
+    return(w)
+  })
 }
-
 
 
 
@@ -300,51 +319,55 @@ fbetaLoss <- function(x,y,beta=1) {
 #'   y <- iris$Species
 #'   
 #'   # -- build the multiclass SVM model
-#'   w <- bmrm(softMarginVectorLoss(x,y))
-#'   dim(w) <- c(ncol(x),nlevels(y))
-#'   dimnames(w) <- list(colnames(x),levels(y))
-#'   F <- x %*% w
-#'   pred <- colnames(F)[max.col(F)]
-#'   table(pred,y)
+#'   w <- nrbm(softMarginVectorLoss(x,y))
+#'   table(predict(w,x),y)
 #'   
 #'   # -- Plot the dataset, the decision boundaries, the convergence curve, and the predictions
 #'   gx <- seq(min(x[,2]),max(x[,2]),length=200) # positions of the probes on x-axis
 #'   gy <- seq(min(x[,3]),max(x[,3]),length=200) # positions of the probes on y-axis
-#'   Y <- outer(gx,gy,function(a,b){
-#'      max.col(cbind(100,a,b) %*% w)
-#'   })
-#'   layout(matrix(c(1,3,2,3),2,2))
-#'   image(gx,gy,Y,asp=1,main="dataset & decision boundaries",xlab=colnames(x)[1],ylab=colnames(x)[2])
+#'   Y <- outer(gx,gy,function(a,b) {predict(w,cbind(100,a,b))})
+#'   image(gx,gy,unclass(Y),asp=1,main="dataset & decision boundaries",
+#'         xlab=colnames(x)[2],ylab=colnames(x)[3])
 #'   points(x[,-1],pch=19+as.integer(y))
-#'   plot(attr(w,"log")$epsilon,type="o",ylab="epsilon gap",xlab="iteration")
-#'   plot(row(F),F,pch=19+col(F),ylab="prediction values",xlab="sample")
 softMarginVectorLoss <- function(x,y,l=1 - table(seq_along(y),y)) {
   if (!is.matrix(x)) stop('x must be a numeric matrix')
   if (!is.factor(y)) stop('y must be a factor')
   if (nrow(x) != length(y)) stop('dimensions of x and y mismatch')
   if (!identical(nrow(x),nrow(l))) stop('dimensions of x and l mismatch')
-  if (nlevels(y)>ncol(l)) stop('some values in y are out of range of the loss matrix')
+  if (any(levels(y)!=colnames(l))) stop('colnames(l) must match with levels(y)')
   
-  function(w) {
-    w <- cbind(matrix(numeric(),ncol(x)*ncol(l),0),w)
-
-    fp <- x %*% matrix(w,ncol(x))
-    fp <- matrix(fp[,t(matrix(seq_len(ncol(fp)),ncol(l)))],ncol=ncol(l)) # resize fp matrix
-    fy <- fp[cbind(seq_len(nrow(fp)),y)]
-    lp <- fp - fy + l[arrayInd(seq_len(nrow(fp)),nrow(x)),]
-    p <- matrix(max.col(lp,ties.method='first'),nrow(x))
-    lp <- matrix(lp[cbind(seq_along(p),as.vector(p))],nrow(p))
+  set.convex(function(w) {
+    W <- matrix(w,ncol(x),ncol(l),dimnames=list(colnames(x),levels(y)))
+    fp <- x %*% W
+    fy <- rowSums(x * t(W[,y]))
+    lp <- fp - fy + l
+    p <- max.col(lp,ties.method='first')
+    lp <- lp[cbind(1:length(p),p)]
     
     # compute gradient
-    gy <- gp <- array(0,c(length(y),ncol(l),ncol(w)))
-    gp[cbind(as.vector(row(p)),as.vector(p),as.vector(col(p)))] <- 1
-    gy[cbind(as.vector(row(p)),y,as.vector(col(p)))] <- 1
+    gy <- gp <- matrix(0,length(y),ncol(W))
+    gp[cbind(seq_along(y),p)] <- 1
+    gy[cbind(seq_along(y),y)] <- 1
     grad <- gp - gy
 
-    val <- colSums(lp)
-    gradient(val) <- array(crossprod(x,matrix(grad,nrow(grad))),dim(w))
-    return(val)
-  }
+    w <- as.vector(W)
+    attr(w,"model.dim") <- dim(W)
+    attr(w,"model.dimnames") <- dimnames(W)
+    lvalue(w) <- sum(lp)
+    gradient(w) <- as.vector(crossprod(x,grad))
+    class(w) <- "softMarginVectorLoss"
+    return(w)
+  })
+}
+
+#' @export
+predict.softMarginVectorLoss <- function(object,x,...) {
+  W <- array(object,attr(object,"model.dim"),attr(object,"model.dimnames"))
+  f <- x %*% W
+  y <- max.col(f,ties.method="first")
+  y <- factor(colnames(W)[y],colnames(W))
+  attr(f,"decision.value") <- f
+  y
 }
 
 
@@ -371,9 +394,7 @@ softMarginVectorLoss <- function(x,y,l=1 - table(seq_along(y),y)) {
 #'                   0,1,1,0,
 #'                   0,1,0,1),3,4,byrow=TRUE)
 #'   w <- nrbm(ontologyLoss(x,y,dag=dag))
-#'   w <- matrix(w,ncol(x))
-#'   f <- x %*% tcrossprod(w,dag)
-#'   table(y,max.col(f))
+#'   table(predict(w,x),y)
 ontologyLoss <- function(x,y,l=1 - table(seq_along(y),y),dag=diag(nlevels(y))) {
   if (!is.matrix(x)) stop('x must be a numeric matrix')
   if (!is.factor(y)) stop('y must be a factor')
@@ -384,21 +405,32 @@ ontologyLoss <- function(x,y,l=1 - table(seq_along(y),y),dag=diag(nlevels(y))) {
   if (!identical(nrow(x),nrow(l))) stop('dimensions of x and l mismatch')
   if (nlevels(y)!=ncol(l)) stop('ncol(l) do not match with nlevels(y)')
   
-  function(w) {
-    w <- cbind(matrix(numeric(),ncol(x)*ncol(dag),0),w)
-    fp <- x %*% matrix(w,ncol(x))
-    fp <- matrix(fp[,t(matrix(seq_len(ncol(fp)),ncol(dag)))],ncol=ncol(dag)) # resize fp matrix
-    z <- tcrossprod(fp,dag) + l[arrayInd(seq_len(nrow(fp)),nrow(x)),]
-    Y <- matrix(max.col(z,ties.method="first"),nrow(x))
-    val <- colSums(matrix(z[cbind(seq_along(Y),as.vector(Y))] - z[cbind(seq_along(Y),y[row(Y)])],nrow(x)))
-    G <- dag[Y,] - dag[y[row(Y)],]
-    G <- crossprod(x,matrix(G,nrow(x)))
-    G <- array(G[,t(matrix(seq_len(ncol(G)),ncol(w)))],dim(w))
-    gradient(val) <- G
-    return(val)
-  }
+  set.convex(function(w) {
+    W <- matrix(w,ncol(x),ncol(dag))
+    fp <- x %*% W
+    z <- tcrossprod(fp,dag) + l
+    Y <- max.col(z,ties.method = "first")
+    G <- dag[Y,] - dag[y,]
+    
+    w <- as.vector(W)
+    attr(w,"model.dim") <- dim(W)
+    attr(w,"model.dimnames") <- dimnames(W)
+    attr(w,"model.dag") <- dag
+    lvalue(w) <- sum(z[cbind(seq_along(Y),Y)] - z[cbind(seq_along(y),y)])
+    gradient(w) <- as.vector(crossprod(x,G))
+    class(w) <- "ontologyLoss"
+    return(w)
+  })
 }
 
+#' @export
+predict.ontologyLoss <- function(object,x,...) {
+  W <- array(object,attr(object,"model.dim"),attr(object,"model.dimnames"))
+  f <- x %*% tcrossprod(W,attr(object,"model.dag"))
+  y <- max.col(f,ties.method="first")
+  attr(y,"decision.value") <- f
+  y
+}
 
 
 
@@ -414,7 +446,7 @@ ontologyLoss <- function(x,y,l=1 - table(seq_along(y),y),dag=diag(nlevels(y))) {
 #'        If a character string the accepted values are "0/1" for a 0-1 cost matrix or "linear" for linear cost.
 #' @return the cost matrix object
 #' @export
-#' @seealso bmrm, ordinalRegressionLoss
+#' @seealso nrbm, ordinalRegressionLoss
 costMatrix <- function(y,C=c("0/1","linear")) {
   y <- as.factor(y)
   if (is.character(C)) {
@@ -447,7 +479,7 @@ costMatrix <- function(y,C=c("0/1","linear")) {
 #' @references Teo et al.
 #'   Bundle Methods for Regularized Risk Minimization
 #'   JMLR 2010
-#' @seealso bmrm
+#' @seealso nrbm
 #' @import matrixStats
 #' @examples
 #' # -- Load the data
@@ -455,8 +487,8 @@ costMatrix <- function(y,C=c("0/1","linear")) {
 #' y <- as.integer(iris$Species)
 #' 
 #' # -- Train the model
-#' w <- bmrm(ordinalRegressionLoss(x,y),LAMBDA=0.001,EPSILON_TOL=0.0001)
-#' w2 <- bmrm(ordinalRegressionLoss(x,y,impl="quadratic"),LAMBDA=0.001,EPSILON_TOL=0.0001)
+#' w <- nrbm(ordinalRegressionLoss(x,y),LAMBDA=0.001,EPSILON_TOL=0.0001)
+#' w2 <- nrbm(ordinalRegressionLoss(x,y,impl="quadratic"),LAMBDA=0.001,EPSILON_TOL=0.0001)
 #' 
 #' # -- plot predictions
 #' f <- x %*% w
@@ -483,57 +515,57 @@ ordinalRegressionLoss <- function(x,y,C="0/1",impl=c("loglin","quadratic")) {
   M <- (m*m - sum(mi*mi))/2
   C <- C / M
   
-  colOrder <- function(m) {
-    array(row(m)[order(col(m),m)],dim(m))
-  }
-  
   .loglin <- function(w) {
-    w <- cbind(matrix(numeric(),ncol(x),0),w)
+    w <- rep(w,length.out=ncol(x))
     f <- x %*% w
-    c <- rbind(f-0.5,f+0.5)
-    o <- colOrder(c)
-    j <- array(arrayInd(o,m),dim(o))
+    c <- c(f-0.5,f+0.5)
+    o <- order(c)
+    j <- ((o-1)%%m)+1
     
-    l <- array(0,c(2*m,ncol(w),length(mi)))
-    l[cbind(which(o<=m,arr.ind=TRUE),y[j[o<=m]])] <- 1
-    l <- array(matrixStats::colCumsums(matrix(l,nrow(l))),dim(l))
+    l <- matrix(0,2*m,length(mi))
+    l[cbind(which(o<=m),y[j[o<=m]])] <- 1
+    l <- matrixStats::colCumsums(l)
     
-    ijk <- arrayInd(seq_along(l),dim(l))
+    u <- matrix(0,2*m,length(mi))
+    u[cbind(which(o>m),y[j[o>m]])] <- 1
+    u <- mi[col(u)] - matrixStats::colCumsums(u)
     
-    u <- array(0,c(2*m,ncol(w),length(mi)))
-    u[cbind(which(o>m,arr.ind=TRUE),y[j[o>m]])] <- 1
-    u <- mi[ijk[,3]] - array(matrixStats::colCumsums(matrix(u,nrow(u))),dim(u))
+    Gu <- t(C)[y[j],] * u
+    Gu[col(Gu)>=y[j]] <- 0
+    Gl <- C[y[j],] * l
+    Gl[col(Gl)<=y[j]] <- 0
     
-    Gu <- array(t(C)[y[j],],dim(u)) * u
-    Gu[ijk[,3]>=y[j]] <- 0
-    Gl <- array(C[y[j],],dim(l)) * l
-    Gl[ijk[,3]<=y[j]] <- 0
+    v <- ifelse(o<=m,-rowSums(Gu), rowSums(Gl))
+    lvalue(w) <- sum(v*c[o])
     
-    v <- ifelse(o<=m,-rowSums(Gu,dims=2), rowSums(Gl,dims=2))
-    r <- colSums(v*c[cbind(as.vector(o),as.vector(col(o)))])
-    
-    g <- array(NA,c(m,ncol(w),2))
-    g[cbind(as.vector(j),as.vector(col(j)),as.vector(1 + (o-1)%/%m))] <- v
-    g <- rowSums(g,dims=2)
-    gradient(r) <- crossprod(x,g)
-    return(r)
+    g <- matrix(NA,m,2)
+    g[cbind(j,1 + (o-1)%/%m)] <- v
+    g <- rowSums(g)
+    gradient(w) <- crossprod(g,x)
+    attr(w,"class") <- "ordinalRegressionLoss"
+    return(w)
   }
   
   .quadratic <- function(w) {
-    w <- cbind(matrix(numeric(),ncol(x),0),w)
+    w <- rep(w,length.out=ncol(x))
     f <- x %*% w
     
     # alternative computation in quadratic time for debugging purpose only
     z <- expand.grid(i=factor(1:m),j=factor(1:m))
     z <- z[y[z$i] < y[z$j],]
     z$Cij <- C[cbind(y[z$i],y[z$j])]
-    R <- colSums(z$Cij * pmax(1+f[z$i,,drop=FALSE]-f[z$j,,drop=FALSE],0))
-    gradient(R) <- crossprod(z$Cij*(x[z$i,]-x[z$j,]),(1+f[z$i,,drop=FALSE]-f[z$j,,drop=FALSE])>0)
-    return(R)
+    lvalue(w) <- sum(z$Cij * pmax(1+f[z$i,drop=FALSE]-f[z$j,drop=FALSE],0))
+    gradient(w) <- crossprod(z$Cij*(x[z$i,]-x[z$j,]),(1+f[z$i]-f[z$j])>0)
+    attr(w,"class") <- "ordinalRegressionLoss"
+    return(w)
   }
   
-  switch(impl,loglin=.loglin,quadratic=.quadratic)
+  set.convex(switch(impl,loglin=.loglin,quadratic=.quadratic))
 }
 
+#' @export
+predict.ordinalRegressionLoss <- function(object,x,...) {
+  x %*% object
+}
 
 

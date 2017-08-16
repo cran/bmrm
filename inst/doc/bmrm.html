@@ -230,25 +230,25 @@ where
 </thead><tbody>
 <tr>
 <td>Support Vector Machine (SVM)</td>
-<td>Linear Classifier</td>
+<td>Linear Binary Classifier</td>
 <td><code>hingeLoss()</code></td>
 <td>\(\max(0,1-ywx)\)</td>
 </tr>
 <tr>
 <td>Maximizing ROC area</td>
-<td>Linear Classifier</td>
+<td>Linear Binary Classifier</td>
 <td><code>rocLoss()</code></td>
 <td>@Teo_JMLR_2010, &sect;A.3.1</td>
 </tr>
 <tr>
 <td>Maximizing fbeta score</td>
-<td>Linear Classifier</td>
+<td>Linear Binary Classifier</td>
 <td><code>fbetaLoss()</code></td>
 <td>@Teo_JMLR_2010, &sect;A.3.5</td>
 </tr>
 <tr>
 <td>Logistic Regression</td>
-<td>Regressor</td>
+<td>Linear Binary Classifier</td>
 <td><code>logisticLoss()</code></td>
 <td>\(\log(1+e^{-ywx})\)</td>
 </tr>
@@ -300,28 +300,25 @@ where
 
 <p>In addition to this implemented algorithms, the package is flexible enought to allow easy implementation of custom methods adapted to your learning problem.</p>
 
-<p>Regarding regularization, <code>bmrm</code> package can handle both L1 and L2 regularization of the parameter vector \(w\). L1 regularization is obtained by computing the L1-norm of the parameter vector (\(\Omega(w)=|w|\)); while L2 regularization is computed by using the L2-norm of the parameter vector (\(\Omega(w)=||w||\)). In theory, L1 regularization yield better model sparsity and may be prefered. However, the implementation available for L2-regularizer is much more memory efficient. The parameter \(\lambda\) control the tradeoff between model fitting and model simplicity, and should be tuned to account for overfitting.</p>
+<p>Regarding regularization, <code>bmrm</code> package can handle both L1 and L2 regularization of the parameter vector \(w\). L1 regularization is obtained by computing the L1-norm of the parameter vector (\(\Omega(w)=|w|\)); while L2 regularization is computed by using the L2-norm of the parameter vector (\(\Omega(w)=||w||\)). In theory, L1 regularization yield better model sparsity and may be prefered. However, the implementation available for L2-regularizer is much more memory efficient and can handle non-convex loss functions. The parameter \(\lambda\) control the tradeoff between model fitting and model simplicity, and should be tuned to account for overfitting.</p>
 
 <p>Most of the time, the loss functions are convex and all the ones implemented in the package are. However, non-convex losses can also be handle by the package if necessary. See section <a href="#choosing-the-optimization-algorithms">Choosing the Optimization Algorithms</a> for more details.</p>
 
 <h2>Quick start</h2>
 
-<p>In this quick start guide, we show how to train a multiclass-SVM on iris dataset.</p>
+<p>In this quick start guide, we show how to train a multiclass-SVM on iris dataset with an intercept.</p>
 
 <pre><code class="r">    library(bmrm)
     x &lt;- cbind(intercept=100,data.matrix(iris[c(&quot;Sepal.Length&quot;,&quot;Sepal.Width&quot;,&quot;Petal.Length&quot;,&quot;Petal.Width&quot;)]))
-    y &lt;- iris$Species
     w &lt;- nrbm(softMarginVectorLoss(x,iris$Species))
-    w &lt;- matrix(w,ncol(x),dimnames=list(colnames(x),levels(iris$Species)))
-    predictions &lt;- colnames(w)[max.col(x %*% w)]
-    table(target=y,prediction=predictions)
+    table(target=iris$Species,prediction=predict(w,x))
 </code></pre>
 
 <h2>Models Intercept</h2>
 
 <h2>Choosing the Optimization Algorithms</h2>
 
-<p><code>bmrm</code> package implements two algorithms proposed by @Teo_JMLR_2010 and @Do_JMLR_2012 to solve the above minimization problem. The methods are respectively called <code>bmrm()</code>and <code>nrbm()</code>. <code>nrbm()</code> is a memory optimized version of <code>bmrm()</code> that can handle non-convex risk when parameter <code>convexRisk=FALSE</code>. <code>nrbm()</code> should always be prefered over <code>bmrm()</code>, but it is limited to L2-regularization. In contrast, <code>bmrm()</code> can handle L1-regularization, but is more memory consuming and doesn&#39;t support non-convex losses. The table below summarize the recommendend optimization algorithm to use for the possible use cases.</p>
+<p><code>bmrm</code> package implement the algorithm proposed by @Do_JMLR_2012 to solve the above minimization problem and a L1-regularized verion of the algorithm as well. The methods are respectively called <code>nrbm()</code> and <code>nrbmL1()</code>. <code>nrbm()</code> is memory optimized version and can handle non-convex risk when parameter <code>convexRisk=FALSE</code>. In contrast, <code>nrbmL1()</code> can handle L1-regularization, but doesn&#39;t support non-convex losses. In addition, by default <code>nrbmL1()</code> doesn&#39;t provide memory optimization to guaranty convergence of the algorithm. Memory optimization is however possible by setting parameter <code>maxCP</code> to a value typically below 100, but in this case convergence of the algorithm is not guaranty.</p>
 
 <table><thead>
 <tr>
@@ -333,7 +330,7 @@ where
 <tr>
 <td>L1</td>
 <td>Yes</td>
-<td><code>bmrm()</code></td>
+<td><code>nrbmL1()</code></td>
 </tr>
 <tr>
 <td>L2</td>
@@ -346,7 +343,7 @@ where
 
 <h2>Loss function</h2>
 
-<p>The loss functions has to accept a matrix W (or 0) and return both a vector of loss values and a matrix of gradients at input points W. When W=0, </p>
+<p>The loss functions has to accept a point estimate w (or 0) and return it with attributes <code>lvalue</code> and <code>gradient</code> set. <code>lvalue</code> contains the estimated loss value at the estimated point <code>w</code>; <code>gradient</code> contains the estimated gradient vector at the estimated point <code>w</code>.</p>
 
 <h3>Custom loss</h3>
 
