@@ -4,10 +4,9 @@
 \alias{mmc}
 \title{Convenient wrapper function to solve max-margin clustering problem on a dataset}
 \usage{
-mmc(x, k = 2L, N0 = 3L, LAMBDA = 1, NUM_RAMDOM_START = 50L,
-  seed = 123, nrbmArgsSvm = list(maxCP = 20L, MAX_ITER = 100L),
-  nrbmArgsMmc = list(maxCP = 20L, MAX_ITER = 300L),
-  mc.cores = getOption("mc.cores", 1L), ...)
+mmc(x, k = 2L, N0 = 2L, LAMBDA = 1, seeds = 1:50,
+  nrbmArgsSvm = list(maxCP = 10L, MAX_ITER = 100L), nrbmArgsMmc = list(maxCP
+  = 20L, MAX_ITER = 300L), mc.cores = getOption("mc.cores", 1L), ...)
 }
 \arguments{
 \item{x}{numeric matrix representing the dataset (one sample per row)}
@@ -20,9 +19,7 @@ as the starting point of current MMC iteration.}
 
 \item{LAMBDA}{the complexity parameter for nrbm()}
 
-\item{NUM_RAMDOM_START}{number of MMC iteration to perform with a random starting point}
-
-\item{seed}{the random seed basis to use}
+\item{seeds}{the random seeds to use}
 
 \item{nrbmArgsSvm}{arguments to nrbm() when solving for multi-class SVM problem}
 
@@ -41,25 +38,16 @@ The random starting points are determined by randomly assigning N0 samples to ea
 }
 \examples{
    # -- Prepare a 2D dataset to cluster with an intercept
-   x <- data.matrix(iris[c(1,3)])
-   x <- x - colMeans(x)[col(x)]
-   colSds <- sqrt(colMeans((x - colMeans(x)[col(x)])^2))
-   x <- x / colSds[col(x)]
-   x <- cbind(x,intercept=1)
+   x <- cbind(intercept=100,scale(data.matrix(iris[c(1,3)]),center=TRUE,scale=FALSE))
 
    # -- Find max-margin clusters
-   y <- mmc(x,k=3,LAMBDA=0.001,minClusterSize=10,NUM_RAMDOM_START=10)
+   y <- mmc(x,k=3,LAMBDA=0.001,minClusterSize=10,seeds=5)
    table(y,iris$Species)
    
    # -- Plot the dataset and the MMC decision boundaries
-   gx <- seq(min(x[,1]),max(x[,1]),length=200)
-   gy <- seq(min(x[,2]),max(x[,2]),length=200)
-   Y <- outer(gx,gy,function(a,b){predict(y,cbind(a,b,1))})
+   gx <- seq(min(x[,2]),max(x[,2]),length=100)
+   gy <- seq(min(x[,3]),max(x[,3]),length=100)
+   Y <- outer(gx,gy,function(a,b){predict(y,cbind(100,a,b))})
    image(gx,gy,Y,asp=1,main="MMC clustering",xlab=colnames(x)[1],ylab=colnames(x)[2])
-   points(x,pch=19+max.col(y))
-   
-   # -- show support vectors
-   #L <- attr(y,"loss")
-   #is.sv <- rowSums(attr(L,"Y")*attr(L,"R"))>0
-   #points(x[is.sv,,drop=FALSE],col="blue",pch=8)
+   points(x[,-1],pch=19+y)
 }

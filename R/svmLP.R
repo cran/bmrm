@@ -68,7 +68,7 @@ svmLP <- function(x,y,LAMBDA=1,loss.weights=1) {
 #' @export
 predict.svmLP <- function(object,x,...) {
   f <- x %*% object
-  y <- y>0
+  y <- f>0
   attr(y,"decision.values") <- f
   return(y)
 }

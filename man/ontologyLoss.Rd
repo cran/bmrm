@@ -25,12 +25,13 @@ Ontology loss function may be used when the class labels are organized has an on
 \examples{
   # -- Load the data
   x <- cbind(intercept=100,data.matrix(iris[1:4]))
-  y <- iris$Species
-  dag <- matrix(c(1,0,0,0,
-                  0,1,1,0,
-                  0,1,0,1),3,4,byrow=TRUE)
-  w <- nrbm(ontologyLoss(x,y,dag=dag))
-  table(predict(w,x),y)
+  dag <- matrix(nrow=nlevels(iris$Species),byrow=TRUE,dimnames=list(levels(iris$Species)),c(
+      1,0,0,0,
+      0,1,1,0,
+      0,1,0,1
+  ))
+  w <- nrbm(ontologyLoss(x,iris$Species,dag=dag))
+  table(predict(w,x),iris$Species)
 }
 \references{
 Teo et al.

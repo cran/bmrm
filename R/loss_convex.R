@@ -366,7 +366,7 @@ predict.softMarginVectorLoss <- function(object,x,...) {
   f <- x %*% W
   y <- max.col(f,ties.method="first")
   y <- factor(colnames(W)[y],colnames(W))
-  attr(f,"decision.value") <- f
+  attr(y,"decision.value") <- f
   y
 }
 
@@ -389,12 +389,13 @@ predict.softMarginVectorLoss <- function(object,x,...) {
 #' @examples
 #'   # -- Load the data
 #'   x <- cbind(intercept=100,data.matrix(iris[1:4]))
-#'   y <- iris$Species
-#'   dag <- matrix(c(1,0,0,0,
-#'                   0,1,1,0,
-#'                   0,1,0,1),3,4,byrow=TRUE)
-#'   w <- nrbm(ontologyLoss(x,y,dag=dag))
-#'   table(predict(w,x),y)
+#'   dag <- matrix(nrow=nlevels(iris$Species),byrow=TRUE,dimnames=list(levels(iris$Species)),c(
+#'       1,0,0,0,
+#'       0,1,1,0,
+#'       0,1,0,1
+#'   ))
+#'   w <- nrbm(ontologyLoss(x,iris$Species,dag=dag))
+#'   table(predict(w,x),iris$Species)
 ontologyLoss <- function(x,y,l=1 - table(seq_along(y),y),dag=diag(nlevels(y))) {
   if (!is.matrix(x)) stop('x must be a numeric matrix')
   if (!is.factor(y)) stop('y must be a factor')
@@ -406,7 +407,7 @@ ontologyLoss <- function(x,y,l=1 - table(seq_along(y),y),dag=diag(nlevels(y))) {
   if (nlevels(y)!=ncol(l)) stop('ncol(l) do not match with nlevels(y)')
   
   set.convex(function(w) {
-    W <- matrix(w,ncol(x),ncol(dag))
+    W <- matrix(w,ncol(x),ncol(dag),dimnames = list(colnames(x),colnames(dag)))
     fp <- x %*% W
     z <- tcrossprod(fp,dag) + l
     Y <- max.col(z,ties.method = "first")
@@ -425,9 +426,12 @@ ontologyLoss <- function(x,y,l=1 - table(seq_along(y),y),dag=diag(nlevels(y))) {
 
 #' @export
 predict.ontologyLoss <- function(object,x,...) {
-  W <- array(object,attr(object,"model.dim"),attr(object,"model.dimnames"))
-  f <- x %*% tcrossprod(W,attr(object,"model.dag"))
+  W <- array(object,attr(object,"model.dim"))
+  dimnames(W) <- attr(object,"model.dimnames")
+  W <- tcrossprod(W,attr(object,"model.dag"))
+  f <- x %*% W
   y <- max.col(f,ties.method="first")
+  y <- factor(colnames(W)[y],colnames(W))
   attr(y,"decision.value") <- f
   y
 }

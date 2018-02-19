@@ -14,8 +14,9 @@
 #'   This is the value used as coefficient of the regularization term.
 #' @param MAX_ITER the maximum number of iteration to perform. 
 #'   The function stop with a warning message if the number of iteration exceed this value
-#' @param EPSILON_TOL control optimization stoping criteria: 
-#'   the optimization end when the optimization gap is below this threshold
+#' @param EPSILON_TOL a numeric value between 0 and 1 controling stoping criteria: 
+#'   the optimization end when the ratio between the optimization gap and the
+#'   objective value is below this threshold
 #' @param w0 initial weight vector where optimization start
 #' @param maxCP mximal number of cutting plane to use to limit memory footprint
 #' @param convexRisk a length 1 logical telling if the risk function riskFun is convex. 
@@ -69,7 +70,7 @@ NULL
 
 #' @describeIn nrbm original L2-regularized version of nrbm
 #' @export
-nrbm <- function(riskFun,LAMBDA=1,MAX_ITER=1000L,EPSILON_TOL=0.01,w0=0,maxCP=50L,convexRisk=is.convex(riskFun),LowRankQP.method="LU",line.search=TRUE) {
+nrbm <- function(riskFun,LAMBDA=1,MAX_ITER=1000L,EPSILON_TOL=0.01,w0=0,maxCP=50L,convexRisk=is.convex(riskFun),LowRankQP.method="LU",line.search=!convexRisk) {
   # check parameters
   if (maxCP<3) stop("maxCP should be >=3")
   cat(ifelse(convexRisk%in%TRUE,"Run nrbm with convex loss\n","Run nrbm with non-convex loss\n"))
@@ -167,6 +168,7 @@ nrbm <- function(riskFun,LAMBDA=1,MAX_ITER=1000L,EPSILON_TOL=0.01,w0=0,maxCP=50L
     if (ub-lb < ub*EPSILON_TOL) break
   }
   if (i >= MAX_ITER) warning('max # of itertion exceeded')
+  attr(ub.w,"obj") <- ub
   return(ub.w)
 }
 
@@ -178,7 +180,7 @@ nrbm <- function(riskFun,LAMBDA=1,MAX_ITER=1000L,EPSILON_TOL=0.01,w0=0,maxCP=50L
 
 #' @describeIn nrbm L1-regularized version of nrbm that can only handle convex risk
 #' @export
-nrbmL1 <- function(riskFun,LAMBDA=1,MAX_ITER=300L,EPSILON_TOL=0.01,w0=0,maxCP=+Inf,line.search=TRUE) {
+nrbmL1 <- function(riskFun,LAMBDA=1,MAX_ITER=300L,EPSILON_TOL=0.01,w0=0,maxCP=+Inf,line.search=FALSE) {
   # check parameters
   if (maxCP<3) stop("maxCP should be >=3")
 
@@ -256,6 +258,7 @@ nrbmL1 <- function(riskFun,LAMBDA=1,MAX_ITER=300L,EPSILON_TOL=0.01,w0=0,maxCP=+I
     if (ub-lb < ub*EPSILON_TOL) break
   }
   if (i >= MAX_ITER) warning('max # of itertion exceeded')
+  attr(ub.w,"obj") <- ub
   return(ub.w)
 }
 

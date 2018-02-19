@@ -25,15 +25,24 @@ mmcLoss <- function(x, k=3L,minClusterSize=1L,groups=matrix(logical(0),nrow(x),0
   weight <- rep_len(weight,nrow(x))
   minClusterSize <- rep_len(minClusterSize,k)
   
+  cst <- merge(by="col",
+    which(as.matrix(groups),arr.ind=TRUE),
+    which(as.matrix(minGroupOverlap)>0,arr.ind=TRUE)
+  )
+  cst$cstId <- as.integer(factor((cst$col-1)*k + cst$row.y))
+  cst$varId <- nrow(x)*(cst$row.y-1L) + cst$row.x
+  
   lp.constraints <- list(
     dense.const = rbind(
         # constrain the instances to belong to one and only one cluster
         eq = cbind(seq_len(nrow(x)),seq_len(nrow(x)*k),1),
         # constrain on the minimum size of the clusters
-        gt = cbind(as.vector(col(matrix(NA,nrow(x),k)))+nrow(x),seq_len(nrow(x)*k),1)
+        gt = cbind(as.vector(col(matrix(NA,nrow(x),k)))+nrow(x),seq_len(nrow(x)*k),1),
+        # groups constraints
+        grp = cbind(nrow(x)+k+cst$cstId,cst$varId,rep(1,length(cst$cstId)))
     ),
-    const.dir = c(eq=rep_len("==",nrow(x)),gt=rep_len(">=",k)),
-    const.rhs = c(eq=rep_len(1,nrow(x)),gt=minClusterSize)
+    const.dir = c(eq=rep_len("==",nrow(x)),gt=rep_len(">=",k),gt=rep_len(">=",sum(minGroupOverlap>0))),
+    const.rhs = c(eq=rep_len(1,nrow(x)),gt=minClusterSize,grp=minGroupOverlap[minGroupOverlap>0])
   )
   
   function(w) {
@@ -85,8 +94,7 @@ mmcLoss <- function(x, k=3L,minClusterSize=1L,groups=matrix(logical(0),nrow(x),0
 #'        The classification dataset it defines is used to train a multi-class SVM whose solution is used 
 #'        as the starting point of current MMC iteration.
 #' @param LAMBDA the complexity parameter for nrbm()
-#' @param NUM_RAMDOM_START number of MMC iteration to perform with a random starting point
-#' @param seed the random seed basis to use
+#' @param seeds the random seeds to use
 #' @param nrbmArgsSvm arguments to nrbm() when solving for multi-class SVM problem
 #' @param nrbmArgsMmc arguments to nrbm() when solving for max-margin clustering problem
 #' @param mc.cores number of core to use when running the random iterations in parallel
@@ -94,67 +102,60 @@ mmcLoss <- function(x, k=3L,minClusterSize=1L,groups=matrix(logical(0),nrow(x),0
 #' @return the MMC model matrix
 #' @examples
 #'    # -- Prepare a 2D dataset to cluster with an intercept
-#'    x <- data.matrix(iris[c(1,3)])
-#'    x <- x - colMeans(x)[col(x)]
-#'    colSds <- sqrt(colMeans((x - colMeans(x)[col(x)])^2))
-#'    x <- x / colSds[col(x)]
-#'    x <- cbind(x,intercept=1)
+#'    x <- cbind(intercept=100,scale(data.matrix(iris[c(1,3)]),center=TRUE,scale=FALSE))
 #' 
 #'    # -- Find max-margin clusters
-#'    y <- mmc(x,k=3,LAMBDA=0.001,minClusterSize=10,NUM_RAMDOM_START=10)
+#'    y <- mmc(x,k=3,LAMBDA=0.001,minClusterSize=10,seeds=5)
 #'    table(y,iris$Species)
 #'    
 #'    # -- Plot the dataset and the MMC decision boundaries
-#'    gx <- seq(min(x[,1]),max(x[,1]),length=200)
-#'    gy <- seq(min(x[,2]),max(x[,2]),length=200)
-#'    Y <- outer(gx,gy,function(a,b){predict(y,cbind(a,b,1))})
+#'    gx <- seq(min(x[,2]),max(x[,2]),length=100)
+#'    gy <- seq(min(x[,3]),max(x[,3]),length=100)
+#'    Y <- outer(gx,gy,function(a,b){predict(y,cbind(100,a,b))})
 #'    image(gx,gy,Y,asp=1,main="MMC clustering",xlab=colnames(x)[1],ylab=colnames(x)[2])
-#'    points(x,pch=19+max.col(y))
-#'    
-#'    # -- show support vectors
-#'    #L <- attr(y,"loss")
-#'    #is.sv <- rowSums(attr(L,"Y")*attr(L,"R"))>0
-#'    #points(x[is.sv,,drop=FALSE],col="blue",pch=8)
-mmc <- function(x,k=2L,N0=3L,LAMBDA=1,NUM_RAMDOM_START=50L,seed=123,
-                nrbmArgsSvm=list(maxCP=20L,MAX_ITER=100L),
+#'    points(x[,-1],pch=19+y)
+mmc <- function(x,k=2L,N0=2L,LAMBDA=1,seeds=1:50,
+                nrbmArgsSvm=list(maxCP=10L,MAX_ITER=100L),
                 nrbmArgsMmc=list(maxCP=20L,MAX_ITER=300L),
                 mc.cores=getOption("mc.cores",1L),...) {  
   nrbmArgsMmc$riskFun <- mmcLoss(x,k=k,...)
   nrbmArgsSvm$LAMBDA <- nrbmArgsMmc$LAMBDA <- k*LAMBDA
   
-  mmcFit <- function(i) {
-    # select a starting point w0 by randomly selecting 3 samples in each cluster and train a multi-class SVM on them
-    set.seed(seed+i)
-    n0 <- min(nrow(x),k*N0)
-    i0 <- sample(seq_len(nrow(x)),n0)
-    y0 <- as.factor(sample(rep_len(seq_len(k),n0)))
-    
-    nrbmArgsSvm$riskFun <- softMarginVectorLoss(x[i0,],y0)
-    w0 <- do.call(nrbm,nrbmArgsSvm)
-    
-    # run MMC solver starting at w0
-    nrbmArgsMmc$w0 <- w0
-    w <- do.call(nrbm,nrbmArgsMmc)
-    return(w)
+  mmcFit <- function(seed) {
+    tryCatch({
+      # select a starting point w0 by randomly selecting N0 samples in each cluster 
+      # and train a multi-class SVM on them
+      set.seed(seed)
+      n0 <- min(nrow(x),k*N0)
+      i0 <- sample(seq_len(nrow(x)),n0)
+      y0 <- as.factor(sample(rep_len(seq_len(k),n0)))
+      
+      nrbmArgsSvm$riskFun <- softMarginVectorLoss(x[i0,],y0)
+      w0 <- do.call(nrbm,nrbmArgsSvm)
+      
+      # run MMC solver starting at w0
+      nrbmArgsMmc$w0 <- w0
+      do.call(nrbm,nrbmArgsMmc)
+    },error = function(e) {
+      print(e)
+      w <- "error";attr(w,"obj") <- NA
+      w
+    })
   }
-  mmcError <- function(w) {
-    as.vector(0.5*nrbmArgsMmc$LAMBDA*crossprod(w) + lvalue(nrbmArgsMmc$riskFun(w)))
-  }
-  
-  err <- mclapply(mc.cores=mc.cores,seq_len(NUM_RAMDOM_START),function(i) mmcError(mmcFit(i)))
+  err <- mclapply(mc.cores=mc.cores,seeds,function(i) attr(mmcFit(i),"obj"))
   err <- simplify2array(err)
-  
+  names(err) <- seeds
+
   # find the minimum of all runs
-  W <- mmcFit(which.min(err))
+  W <- mmcFit(seeds[which.min(err)])
   W <- matrix(W,ncol(x),k)
   rownames(W) <- colnames(x)
   
   L <- nrbmArgsMmc$riskFun(W)
   y <- max.col(attr(L,"Y"))
   attr(y,"W") <- W
-  attr(y,"loss") <- L
-  attr(y,"riskFun") <- nrbmArgsMmc$riskFun
   attr(y,"errors") <- err
+  attr(y,"best.seed") <- seeds[which.min(err)]
   class(y) <- "mmc"
   return(y)
 }
