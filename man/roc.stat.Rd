@@ -20,8 +20,8 @@ Compute statistics for ROC curve plotting
 \examples{
   x <- cbind(data.matrix(iris[1:4]))
   w <- nrbmL1(rocLoss(x,iris$Species=="versicolor"),LAMBDA=0.01)
-  with(roc.stat(x \%*\% w,iris$Species=="versicolor"),plot(FPR,TPR,type="l"))
-  with(roc.stat(-x[,2],iris$Species=="versicolor"),lines(FPR,TPR,col="blue"))
+  plot(roc.stat(x \%*\% w,iris$Species=="versicolor"))
+  lines(roc.stat(-x[,2],iris$Species=="versicolor"),col="blue")
 }
 \author{
 Julien Prados, adapted from Bob Horton code

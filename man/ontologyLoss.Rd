@@ -4,7 +4,8 @@
 \alias{ontologyLoss}
 \title{Ontology Loss Function}
 \usage{
-ontologyLoss(x, y, l = 1 - table(seq_along(y), y), dag = diag(nlevels(y)))
+ontologyLoss(x, y, l = 1 - table(seq_along(y), y),
+  dag = diag(nlevels(y)))
 }
 \arguments{
 \item{x}{instance matrix, where x(t,) defines the features of instance t}

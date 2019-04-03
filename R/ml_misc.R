@@ -15,7 +15,39 @@ balanced.cv.fold <- function(y,num.cv=10) {
   fold
 }
 
+#' Compute loss.weights so that total losses of each class is balanced
+#' 
+#' @param y a object coerced to factor that represent the class labels of each sample of the dataset
+#' @return a numeric vector of the same length as y
+#' @export
+balanced.loss.weights <- function(y) {
+  #if (is.logical(y)) return(ifelse(y,mean(!y),mean(y)))
+  y <- as.factor(y)
+  cw <- 1/(tabulate(y)/length(y))
+  cw <- cw / sum(cw)
+  cw[y]
+}
 
+
+#' Rank linear weight of a linear model
+#' 
+#' @param w a numeric vector of linear weights
+#' @return a data.frame with a rank for each feature as well as z-score, p-value, and false discovery rate.
+#' @export
+#' @importFrom stats sd pnorm p.adjust
+#' @importFrom methods as
+rank.linear.weights <- function(w) {
+  w <- as(w,"vector")
+  R <- data.frame(stringsAsFactors = FALSE,
+    feature.name = if (is.null(names(w))) seq_along(w) else names(w),
+    w = w,
+    rk = pmin(rank(+w,ties.method="first"),rank(-w,ties.method="first"))
+  )
+  R$z <- as.vector((w-mean(w))/sd(w))
+  R$pval <- as.vector(2*pnorm(abs(R$z),lower.tail=FALSE))
+  R$fdr <- as.vector(p.adjust(R$pval,method="fdr"))
+  R
+}
 
 
 #' Compute statistics for ROC curve plotting
@@ -28,14 +60,14 @@ balanced.cv.fold <- function(y,num.cv=10) {
 #' @examples
 #'   x <- cbind(data.matrix(iris[1:4]))
 #'   w <- nrbmL1(rocLoss(x,iris$Species=="versicolor"),LAMBDA=0.01)
-#'   with(roc.stat(x %*% w,iris$Species=="versicolor"),plot(FPR,TPR,type="l"))
-#'   with(roc.stat(-x[,2],iris$Species=="versicolor"),lines(FPR,TPR,col="blue"))
+#'   plot(roc.stat(x %*% w,iris$Species=="versicolor"))
+#'   lines(roc.stat(-x[,2],iris$Species=="versicolor"),col="blue")
 roc.stat <- function(f,y) {
   if (!is.logical(y)) stop("y must be a logical vector")
   if (length(f)!=length(y)) stop("f and y must have same length")
   o <- order(f, decreasing=TRUE)
   roc <- data.frame(
-    f=c(-Inf,f[o]),
+    f = c(-Inf,f[o]),
     TP = c(0,cumsum(y[o])),
     FP = c(0,cumsum(!y[o]))
   )
@@ -51,92 +83,110 @@ roc.stat <- function(f,y) {
   dx <- diff(roc$FPR)
   dy <- diff(roc$TPR)
   attr(roc,"AUC") <- sum(dx*roc$TPR[seq_along(dx)] + dx*dy/2)
+  class(roc) <- c("roc.stat",class(roc))
   return(roc)
 }
 
-
-
-
-
-
-#' Find first common ancestor of 2 nodes in an hclust object
+#' Generic method overlad to print object of class roc.stat
 #' 
-#' @param hc an hclust object
-#' @param a an integer vector with the first leaf node
-#' @param b an integer vector with the second leaf node (same length as a)
-#' @return an integer vector of the same length as a and b identifing the first common ancestors of a and b
-#' @author Julien Prados
+#' @param x a roc.stat object return by the function roc.stat
+#' @param ... additional parameters
 #' @export
-#' @examples
-#'   hc <- hclust(dist(USArrests), "complete")
-#'   plot(hc)
-#'   A <- outer(seq_along(hc$order),seq_along(hc$order),hclust.fca,hc=hc)
-#'   H <- array(hc$height[A],dim(A))
-#'   image(H[hc$order,hc$order])
-#'   image(A[hc$order,hc$order])
-hclust.fca <- function(hc,a,b) {
-  rootA <- row(hc$merge)[match(-a,hc$merge)]
-  rootB <- row(hc$merge)[match(-b,hc$merge)]
-  while(!all(rootA==rootB)) {
-    rootA.parent <- row(hc$merge)[match(rootA,hc$merge)]
-    rootB.parent <- row(hc$merge)[match(rootB,hc$merge)]
-    rootA <- ifelse(rootA<rootB,rootA.parent,rootA)
-    rootB <- ifelse(rootB<rootA,rootB.parent,rootB)
-    rootA==rootB
-  }
-  rootA
+print.roc.stat <- function(x,...) {
+  NextMethod()
+  cat(sprintf("AUC: %.2f\n",attr(x,"AUC")))
 }
 
+#' @export
+#' @importFrom graphics plot
+plot.roc.stat <- function(x,y,type="o",xlab="sensitivity",ylab="specificity",...) {
+  plot(x$sensitivity,x$specificity,xlab=xlab,ylab=ylab,type=type,...)
+}
 
+#' @export
+#' @importFrom graphics lines
+lines.roc.stat <- function(x,type="o",...) {
+  lines(x$sensitivity,x$specificity,type=type,...)
+}
 
 
 #' Perform multiple hierachical clustering on random subsets of a dataset
 #' 
 #' @param x the numeric matrix containing the data to cluster (one instance per row)
 #' @param seeds a vector of random seed to use.
-#' @param mc.cores number of core to use for parallelization
 #' @param row.rate,col.rate numeric value in [0,1] to specify the proportion of instance 
 #'        (resp. feature) to subset at each random iteration.
 #' @param max.cluster upper bound on the number of expected cluster (can by +Inf).
+#' @param ret.height a logical to specify whether the average merging height should be returned.
 #' @param hc.method a clustering method of arity 1, taking as input a random subset of the 
 #'        input matrix x and returning an hclust object
+#' @param ... additional arguments are passed to the hc.method
 #' @return a list of 3 square matrices N,H,K of size nrow(x): N is the number of 
 #'         time each pair of instance as been seen in the random subsets; H is the
-#'         average heights where the pair of sample as been merged in the tree; K is 
-#'         the average number of split possible into the trees still preserving the 
-#'         two samples into the same cluster.
+#'         corresponding sum of heights for the pairs; K is the sum of the number of split
+#'         possible that still preserve the two samples into the same cluster.
 #' @author Julien Prados
-#' @import stats
+#' @importFrom stats as.dist dist hclust prcomp
+#' @importFrom utils txtProgressBar setTxtProgressBar
 #' @export
-iterative.hclust <- function(x,seeds=1:100,mc.cores=getOption("mc.cores",1L),
-  row.rate=0.3,col.rate=0.1,max.cluster=10,
-  hc.method=function(x) {hclust(dist(prcomp(x)$x[,1:4]),method="complete")}
+iterative.hclust <- function(x,seeds=1:100,
+  row.rate=0.3,col.rate=0.1,max.cluster=10L,
+  ret.height=FALSE,
+  hc.method=function(x,PCs=1:6,...) {hclust(dist(prcomp(x,rank.=max(PCs))$x[,PCs,drop=FALSE]),...)},
+  ...
 ) {
-  N0 <- matrix(0,nrow(x),nrow(x))
-  fun <- function(n0,seed) {
-    set.seed(seed)
-    i <- sample(nrow(x),nrow(x)*row.rate)
+  ret <- list()
+  ret$K <- ret$N <- matrix(0L,nrow(x),nrow(x))
+  if (ret.height) ret$H <- matrix(0,nrow(x),nrow(x))
+
+  pb <- txtProgressBar(0,length(seeds),style=3)
+  for(k in seq_along(seeds)) {
+    set.seed(seeds[k])
+    i <- sort(sample(nrow(x),nrow(x)*row.rate))
     j <- sample(ncol(x),ncol(x)*col.rate)
-    M <- x[i,j]
-    hc <- hc.method(M)
-    A <- outer(seq_along(hc$order),seq_along(hc$order),hclust.fca,hc=hc)
-    H <- array(hc$height[A],dim(A))
+    hc <- hc.method(x[i,j],...)
     
-    n0$N[i,i] <- n0$N[i,i] + 1
-    n0$K[i,i] <- n0$K[i,i] + pmin(nrow(hc$merge)-A+1,max.cluster)
-    n0$H[i,i] <- n0$H[i,i] + H
-    n0
+    ri <- rep(seq_along(hc$order),rev(seq_along(hc$order)))
+    ci <- seq_along(ri) + cumsum(seq_along(hc$order)-1L)[ri]
+    ci <- (ci-1L)%%length(hc$order) + 1L
+    A <- hclust_fca(hc,ri,ci)
+
+    ij <- cbind(i[ci],i[ri])
+    if (ret.height) ret$H[ij] <- ret$H[ij] + hc$height[A]
+    ret$N[ij] <- ret$N[ij] + 1L
+    A <- nrow(hc$merge)+1L-A
+    A[A>max.cluster] <- max.cluster
+    ret$K[ij] <- ret$K[ij] + A
+    setTxtProgressBar(pb,k)
   }
-  #N <- Reduce(fun,seeds,list(N=N0,K=N0,H=N0))
-  N <- mclapply(split(seeds,seq_along(seeds)%%mc.cores),Reduce,f=fun,init=list(N=N0,K=N0,H=N0),mc.cores=mc.cores)
-  N <- Reduce(function(n0,x) {n0$N <- n0$N + x$N;n0$K <- n0$K + x$K;n0$H <- n0$H + x$H;n0},N,list(N=N0,K=N0,H=N0))
-  
-  N$K <- ifelse(N$N>0,N$K/N$N,NA)
-  N$H <- ifelse(N$N>0,N$H/N$N,NA)
-  return(N)
+  ret$K <- as.dist(ret$K)
+  ret$N <- as.dist(ret$N)
+  if (ret.height) ret$H <- as.dist(ret$H)
+  ret
 }
 
 
+
+
+#' Compute Bhattacharyya coefficient needed for Hellinger distance
+#' 
+#' @param x a numeric matrix
+#' @return a square matrix containing Bhattacharyya coefficient for each pair of row in x
+#' @author Julien Prados
+#' @export
+bhattacharyya.coefficient <- function(x) {
+  pmin(pmax(crossprod(sqrt(t(x))),0),1)
+}
+
+#' Compute Hellinger distance
+#' 
+#' @param x a numeric matrix
+#' @return an object of class "dist" with Hellinger distance of each pair of row in x
+#' @author Julien Prados
+#' @export
+hellinger.dist <- function(x) {
+  as.dist(sqrt(1-bhattacharyya.coefficient(x)))
+}
 
 
 

@@ -106,5 +106,10 @@ is.convex.default <- function(x,...) {
 
 
 
+# print.nrbmLoss <- function(x,...) {
+#   cat(sprintf("w[%d]: [%s ...]\n",length(x),paste(pretty(head(x)),collapse=" "),"\n"))
+#   cat(sprintf("attributes: %s",paste(names(attributes(x)),collapse=", "),"\n"))
+#   invisible(x)
+# }
 
 

@@ -1,10 +1,10 @@
 Package: bmrm
 Type: Package
 Title: Bundle Methods for Regularized Risk Minimization Package
-Version: 3.7
-Date: 2018-01-22
+Version: 4.1
+Date: 2019-04-03
 Depends: R (>= 3.0.2)
-Imports: lpSolve, LowRankQP, matrixStats
+Imports: methods, lpSolve, LowRankQP, matrixStats, Rcpp
 Suggests: knitr
 VignetteBuilder: knitr
 Author: Julien Prados
@@ -21,8 +21,9 @@ Description: Bundle methods for minimization of convex and non-convex risk
     least absolute deviation regression (see package examples), etc... all with
     L1 and L2 regularization.
 License: GPL-3
-RoxygenNote: 6.0.1
-NeedsCompilation: no
-Packaged: 2018-02-19 12:15:26 UTC; juju
+RoxygenNote: 6.1.0
+LinkingTo: Rcpp
+NeedsCompilation: yes
+Packaged: 2019-04-03 13:45:52 UTC; root
 Repository: CRAN
-Date/Publication: 2018-02-19 12:24:20 UTC
+Date/Publication: 2019-04-03 14:00:03 UTC

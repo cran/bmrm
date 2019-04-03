@@ -4,7 +4,6 @@
 \alias{is.convex}
 \alias{is.convex<-}
 \alias{is.convex.default}
-\alias{is.convex<-}
 \alias{is.convex<-.default}
 \title{Return or set is.convex attribute}
 \usage{

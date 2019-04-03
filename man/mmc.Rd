@@ -5,8 +5,9 @@
 \title{Convenient wrapper function to solve max-margin clustering problem on a dataset}
 \usage{
 mmc(x, k = 2L, N0 = 2L, LAMBDA = 1, seeds = 1:50,
-  nrbmArgsSvm = list(maxCP = 10L, MAX_ITER = 100L), nrbmArgsMmc = list(maxCP
-  = 20L, MAX_ITER = 300L), mc.cores = getOption("mc.cores", 1L), ...)
+  nrbmArgsSvm = list(maxCP = 10L, MAX_ITER = 100L),
+  nrbmArgsMmc = list(maxCP = 20L, MAX_ITER = 300L),
+  mc.cores = getOption("mc.cores", 1L), ...)
 }
 \arguments{
 \item{x}{numeric matrix representing the dataset (one sample per row)}

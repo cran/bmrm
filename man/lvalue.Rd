@@ -4,7 +4,6 @@
 \alias{lvalue}
 \alias{lvalue<-}
 \alias{lvalue.default}
-\alias{lvalue<-}
 \alias{lvalue<-.default}
 \title{Return or set lvalue attribute}
 \usage{

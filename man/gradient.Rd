@@ -4,7 +4,6 @@
 \alias{gradient}
 \alias{gradient<-}
 \alias{gradient.default}
-\alias{gradient<-}
 \alias{gradient<-.default}
 \title{Return or set gradient attribute}
 \usage{

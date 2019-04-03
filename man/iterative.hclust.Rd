@@ -4,32 +4,33 @@
 \alias{iterative.hclust}
 \title{Perform multiple hierachical clustering on random subsets of a dataset}
 \usage{
-iterative.hclust(x, seeds = 1:100, mc.cores = getOption("mc.cores", 1L),
-  row.rate = 0.3, col.rate = 0.1, max.cluster = 10,
-  hc.method = function(x) {     hclust(dist(prcomp(x)$x[, 1:4]), method =
-  "complete") })
+iterative.hclust(x, seeds = 1:100, row.rate = 0.3, col.rate = 0.1,
+  max.cluster = 10L, ret.height = FALSE, hc.method = function(x, PCs
+  = 1:6, ...) {     hclust(dist(prcomp(x, rank. = max(PCs))$x[, PCs, drop =
+  FALSE]), ...) }, ...)
 }
 \arguments{
 \item{x}{the numeric matrix containing the data to cluster (one instance per row)}
 
 \item{seeds}{a vector of random seed to use.}
 
-\item{mc.cores}{number of core to use for parallelization}
-
 \item{row.rate, col.rate}{numeric value in [0,1] to specify the proportion of instance 
 (resp. feature) to subset at each random iteration.}
 
 \item{max.cluster}{upper bound on the number of expected cluster (can by +Inf).}
 
+\item{ret.height}{a logical to specify whether the average merging height should be returned.}
+
 \item{hc.method}{a clustering method of arity 1, taking as input a random subset of the 
 input matrix x and returning an hclust object}
+
+\item{...}{additional arguments are passed to the hc.method}
 }
 \value{
 a list of 3 square matrices N,H,K of size nrow(x): N is the number of 
         time each pair of instance as been seen in the random subsets; H is the
-        average heights where the pair of sample as been merged in the tree; K is 
-        the average number of split possible into the trees still preserving the 
-        two samples into the same cluster.
+        corresponding sum of heights for the pairs; K is the sum of the number of split
+        possible that still preserve the two samples into the same cluster.
 }
 \description{
 Perform multiple hierachical clustering on random subsets of a dataset

@@ -39,6 +39,15 @@ The code is inspired from Matlab code of Do and Artiere, but not tested.
 The function is not used yet, but might be used later to speed up bmrm/nrbm 
 convergence.
 }
+\examples{
+fun <- function(w) {
+  gradient(w) <- w
+  lvalue(w) <- 0.5*sum(w*w)
+  w
+}
+wolfe.linesearch(fun,fun(c(5,5)),c(-1,-1))
+wolfe.linesearch(fun,fun(c(5,5)),c(1,1))
+}
 \references{
 Do and Artieres
   Regularized Bundle Methods for Convex and Non-Convex Risks
